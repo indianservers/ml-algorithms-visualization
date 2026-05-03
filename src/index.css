@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, sans-serif; }
+  #root { width: 100%; height: 100vh; overflow: hidden; display: flex; }
+}
+
+@layer utilities {
+  .font-mono-code { font-family: 'JetBrains Mono', Consolas, monospace; }
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  .dark .scrollbar-thin::-webkit-scrollbar-thumb { background: #475569; }
+}
