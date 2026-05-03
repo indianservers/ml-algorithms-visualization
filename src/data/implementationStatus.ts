@@ -64,6 +64,18 @@ export function getImplementationStatus(route: string): ImplementationStatus {
   return 'Scaffold';
 }
 
+export function getImplementationProof(route: string): string[] {
+  if (route.includes('linear-regression')) return ['Fits coefficients in TypeScript', 'Computes residuals and regression metrics', 'Renders actual vs predicted charts'];
+  if (route.includes('classification')) return ['Runs browser classification logic', 'Computes accuracy/precision/recall/F1', 'Shows decision output and threshold controls where applicable'];
+  if (route.includes('k-means')) return ['Runs centroid assignment/update iterations', 'Computes inertia/SSE', 'Visualizes clusters and centroids'];
+  if (route.includes('dbscan')) return ['Runs epsilon-neighborhood expansion', 'Labels core/border/noise points', 'Visualizes density clusters'];
+  if (route.includes('pca')) return ['Computes covariance matrix', 'Derives eigenvectors/eigenvalues', 'Shows explained variance and projection'];
+  if (route.includes('tf-idf')) return ['Tokenizes documents locally', 'Computes TF, IDF, and TF-IDF matrix', 'Exports top keyword scores'];
+  if (route.includes('q-learning')) return ['Updates Q-table in browser', 'Runs episode simulation', 'Shows policy arrows and rewards'];
+  if (getImplementationStatus(route) === 'Implemented') return ['Uses local TypeScript computation', 'Has unique controls and visualization', 'Reports real metrics/output'];
+  return ['Not yet complete', 'Clearly labeled until real computation is added', 'Excluded from Implemented quality gate'];
+}
+
 export function implementationSummary() {
   const items = navigationData.flatMap(category => category.items.map(item => ({ ...item, category: category.category })));
   const counts: Record<ImplementationStatus, number> = {

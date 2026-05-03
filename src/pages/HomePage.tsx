@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Brain, TrendingUp, Network, Minimize2, BookOpen, FlaskConical, ArrowRight, Zap, Shield, Globe, Clock, Database } from 'lucide-react';
 import { getImplementationStatus, getRecentRoutes, implementationSummary, type ImplementationStatus } from '../data/implementationStatus';
 import { navigationData } from '../data/navigation';
-import { loadExperiments, type Experiment } from '../stores/experimentStore';
+import { loadDatasets, loadExperiments, type Experiment, type SavedDataset } from '../stores/experimentStore';
 import { Badge } from '../components/common/Badge';
 
 const categories = [
@@ -68,6 +68,7 @@ export default function HomePage() {
   const [completedOnly, setCompletedOnly] = React.useState(false);
   const [statusFilter, setStatusFilter] = React.useState<'All' | ImplementationStatus>('All');
   const [recentExperiments, setRecentExperiments] = React.useState<Experiment[]>([]);
+  const [recentDatasets, setRecentDatasets] = React.useState<SavedDataset[]>([]);
   const summary = implementationSummary();
   const recentRoutes = getRecentRoutes();
   const allItems = navigationData.flatMap(category => category.items);
@@ -89,6 +90,9 @@ export default function HomePage() {
     loadExperiments()
       .then(items => setRecentExperiments(items.sort((a, b) => b.createdAt - a.createdAt).slice(0, 5)))
       .catch(() => setRecentExperiments([]));
+    loadDatasets()
+      .then(items => setRecentDatasets(items.sort((a, b) => b.savedAt - a.savedAt).slice(0, 5)))
+      .catch(() => setRecentDatasets([]));
   }, []);
 
   return (
@@ -204,6 +208,20 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="mb-8 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+        <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white"><Database size={17} /> Recent Datasets</h2>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {recentDatasets.length === 0 ? (
+            <p className="text-sm text-gray-500">Saved datasets will appear here with tags and version notes.</p>
+          ) : recentDatasets.map(dataset => (
+            <div key={dataset.id} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
+              <p className="truncate text-xs font-bold text-gray-900 dark:text-gray-100">{dataset.favorite ? '* ' : ''}{dataset.name}</p>
+              <p className="text-[11px] text-gray-500">{dataset.data.length} rows / {dataset.columns.length} columns / {dataset.tags?.join(', ') || 'untagged'}</p>
+            </div>
+          ))}
         </div>
       </div>
 

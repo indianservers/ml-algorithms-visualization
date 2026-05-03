@@ -4,6 +4,7 @@ import { Search, X } from 'lucide-react';
 import { navigationData } from '../../data/navigation';
 import { getImplementationStatus } from '../../data/implementationStatus';
 import { Badge } from './Badge';
+import { loadModelMetadata, type SavedModelMetadata } from '../../stores/experimentStore';
 
 interface RouteSearchModalProps {
   open: boolean;
@@ -25,11 +26,15 @@ const formulaKeywords: Record<string, string> = {
 
 export const RouteSearchModal: React.FC<RouteSearchModalProps> = ({ open, onClose }) => {
   const [query, setQuery] = React.useState('');
+  const [lastModel, setLastModel] = React.useState<SavedModelMetadata | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 0);
+      loadModelMetadata()
+        .then(models => setLastModel(models.sort((a, b) => b.savedAt - a.savedAt)[0] ?? null))
+        .catch(() => setLastModel(null));
     }
   }, [open]);
 
@@ -78,6 +83,19 @@ export const RouteSearchModal: React.FC<RouteSearchModalProps> = ({ open, onClos
           </button>
         </div>
         <div className="max-h-[65vh] overflow-y-auto p-2">
+          {lastModel?.algorithmId && (
+            <Link
+              to={lastModel.algorithmId}
+              onClick={onClose}
+              className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm hover:bg-green-100 dark:border-green-800 dark:bg-green-950/30 dark:hover:bg-green-950/50"
+            >
+              <span>
+                <span className="block font-bold text-green-900 dark:text-green-100">Open last trained model</span>
+                <span className="block text-[11px] text-green-700 dark:text-green-300">{lastModel.name} / {new Date(lastModel.savedAt).toLocaleString()}</span>
+              </span>
+              <Badge type="Implemented" />
+            </Link>
+          )}
           {results.length === 0 ? (
             <p className="px-3 py-8 text-center text-sm text-gray-500">No routes matched that search.</p>
           ) : results.map(item => (

@@ -71,6 +71,8 @@ export interface SavedDataset {
   data: Record<string, unknown>[];
   savedAt: number;
   tags?: string[];
+  favorite?: boolean;
+  versions?: Array<{ savedAt: number; rows: number; note: string }>;
 }
 
 export async function saveDataset(ds: SavedDataset): Promise<void> {
