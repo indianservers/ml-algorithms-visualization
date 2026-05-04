@@ -5,7 +5,7 @@ import { LearningPanel } from '../../../components/ml/LearningPanel';
 import { MetricsPanel } from '../../../components/ml/MetricsPanel';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  ReferenceLine, ScatterChart, Scatter, ComposedChart, Area,
+  ReferenceLine, Scatter, ComposedChart,
 } from 'recharts';
 import { optimizeGD, presetFunctions } from '../../../lib/algorithms/optimization/gradientDescent';
 import type { GDStep } from '../../../lib/algorithms/optimization/gradientDescent';

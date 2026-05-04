@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ScatterChart, Scatter, ReferenceLine, Legend,
+  ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import { GitBranch, Play, RotateCcw } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';

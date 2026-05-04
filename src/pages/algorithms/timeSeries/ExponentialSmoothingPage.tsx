@@ -9,11 +9,11 @@ export default function ExponentialSmoothingPage() {
   const [alpha, setAlpha] = useState(0.35);
   const rows = timeSeriesSalesDataset.data as { month: string; sales: number }[];
   const chart = useMemo(() => {
-    let smooth = rows[0].sales;
-    return rows.map((row, i) => {
-      smooth = i === 0 ? row.sales : alpha * row.sales + (1 - alpha) * smooth;
-      return { month: row.month, sales: row.sales, smoothed: Number(smooth.toFixed(2)) };
-    });
+    return rows.reduce<{ month: string; sales: number; smoothed: number }[]>((items, row, i) => {
+      const previous = items[i - 1]?.smoothed ?? rows[0].sales;
+      const smooth = i === 0 ? row.sales : alpha * row.sales + (1 - alpha) * previous;
+      return [...items, { month: row.month, sales: row.sales, smoothed: Number(smooth.toFixed(2)) }];
+    }, []);
   }, [rows, alpha]);
   const forecast = chart[chart.length - 1].smoothed;
 

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Scatter, ScatterChart, Line, LineChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Scatter, ScatterChart, Line, LineChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Network } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';

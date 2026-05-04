@@ -8,12 +8,12 @@ const tokenize = (text: string) => text.toLowerCase().replace(/[^a-z0-9\s]/g, ''
 
 export default function BagOfWordsPage() {
   const [docsText, setDocsText] = useState((sentimentDataset.data as { text: string }[]).slice(0, 5).map(row => row.text).join('\n'));
-  const docs = docsText.split(/\n+/).filter(Boolean);
   const computed = useMemo(() => {
+    const docs = docsText.split(/\n+/).filter(Boolean);
     const tokens = docs.map(tokenize);
     const vocabulary = [...new Set(tokens.flat())].sort();
     const matrix = tokens.map(row => vocabulary.map(term => row.filter(token => token === term).length));
-    return { vocabulary, matrix, tokens };
+    return { docs, vocabulary, matrix, tokens };
   }, [docsText]);
 
   return (

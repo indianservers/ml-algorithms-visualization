@@ -2,9 +2,15 @@ import React, { Suspense } from 'react';
 import { Outlet, useLocation, Link } from 'react-router-dom';
 import { Sidebar } from '../components/common/Sidebar';
 import { useTheme, useSidebarState } from '../stores/uiStore';
-import { Sun, Moon, Menu, Search, Play, RotateCcw, StepForward, Save, Download, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
-import { getImplementationProof, getImplementationStatus, rememberRoute } from '../data/implementationStatus';
-import { navigationData } from '../data/navigation';
+import { Sun, Moon, Menu, Search, Play, RotateCcw, StepForward, Save, Download, AlertTriangle, CheckCircle2, Info, ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import {
+  getAdjacentAlgorithms,
+  getAlgorithmByRoute,
+  getImplementationStatus,
+  isFavoriteRoute,
+  rememberRoute,
+  toggleFavoriteRoute,
+} from '../data/implementationStatus';
 import { Badge } from '../components/common/Badge';
 import { RouteSearchModal } from '../components/common/RouteSearchModal';
 
@@ -55,10 +61,7 @@ export const RootLayout: React.FC = () => {
   const location = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
   const [routeSearchOpen, setRouteSearchOpen] = React.useState(false);
-  const [shortcutHelpOpen, setShortcutHelpOpen] = React.useState(false);
-  const [learningMode, setLearningMode] = React.useState(() => localStorage.getItem('ml-learning-mode') ?? 'guided');
-  const [animationPaused, setAnimationPaused] = React.useState(() => localStorage.getItem('ml-animation-paused') === 'true');
-  const [animationSpeed, setAnimationSpeed] = React.useState(() => Number(localStorage.getItem('ml-animation-speed') ?? '1'));
+  const [favoriteTick, setFavoriteTick] = React.useState(0);
 
   React.useEffect(() => {
     if (location.pathname.startsWith('/ml/')) rememberRoute(location.pathname);
@@ -80,7 +83,6 @@ export const RootLayout: React.FC = () => {
         return;
       }
       if (editing) return;
-      if (event.key === '?') setShortcutHelpOpen(true);
       if (event.key.toLowerCase() === 't') emitCommand('train');
       if (event.key.toLowerCase() === 'r') emitCommand('reset');
       if (event.key.toLowerCase() === 's') emitCommand('step');
@@ -90,34 +92,27 @@ export const RootLayout: React.FC = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  React.useEffect(() => {
-    localStorage.setItem('ml-learning-mode', learningMode);
-    document.documentElement.dataset.learningMode = learningMode;
-  }, [learningMode]);
-
-  React.useEffect(() => {
-    localStorage.setItem('ml-animation-paused', String(animationPaused));
-    localStorage.setItem('ml-animation-speed', String(animationSpeed));
-    window.dispatchEvent(new CustomEvent('ml:animation-settings', { detail: { paused: animationPaused, speed: animationSpeed } }));
-  }, [animationPaused, animationSpeed]);
-
-  const currentItem = navigationData
-    .flatMap(category => category.items.map(item => ({ ...item, category: category.category })))
-    .find(item => item.route === location.pathname);
+  const currentItem = getAlgorithmByRoute(location.pathname);
+  const adjacent = getAdjacentAlgorithms(location.pathname);
+  const isFavorite = currentItem ? isFavoriteRoute(currentItem.route) : false;
   const algorithmStatus = currentItem ? getImplementationStatus(currentItem.route) : undefined;
   const statusTone = algorithmStatus === 'Implemented'
     ? 'border-green-200 bg-green-50 text-green-900 dark:border-green-800 dark:bg-green-950/40 dark:text-green-100'
     : algorithmStatus === 'Scaffold'
       ? 'border-red-200 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950/40 dark:text-red-100'
       : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100';
-  const commandButtons = [
+  const implementedCommandButtons = [
     { label: 'Train', hint: 'T', event: 'train', icon: <Play size={14} /> },
     { label: 'Reset', hint: 'R', event: 'reset', icon: <RotateCcw size={14} /> },
     { label: 'Step', hint: 'S', event: 'step', icon: <StepForward size={14} /> },
     { label: 'Save', hint: 'Ctrl+S on page forms', event: 'save', icon: <Save size={14} /> },
     { label: 'Export', hint: 'E', event: 'export', icon: <Download size={14} /> },
   ];
-  const proofItems = currentItem ? getImplementationProof(currentItem.route) : [];
+  const conceptCommandButtons = [
+    { label: 'Reset', hint: 'R', event: 'reset', icon: <RotateCcw size={14} /> },
+    { label: 'Export', hint: 'E', event: 'export', icon: <Download size={14} /> },
+  ];
+  const commandButtons = algorithmStatus === 'Implemented' ? implementedCommandButtons : conceptCommandButtons;
 
   return (
     <div className={`flex h-screen w-full overflow-hidden bg-gray-50 dark:bg-gray-950 ${theme === 'dark' ? 'dark' : ''}`}>
@@ -153,20 +148,6 @@ export const RootLayout: React.FC = () => {
               Search
               <kbd className="rounded border border-gray-200 px-1 text-[10px] dark:border-gray-600">Ctrl K</kbd>
             </button>
-            <div className="hidden items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-1 py-1 dark:border-gray-700 dark:bg-gray-800 lg:flex">
-              <button onClick={() => setLearningMode('guided')} className={`rounded px-2 py-0.5 text-xs font-semibold ${learningMode === 'guided' ? 'bg-blue-600 text-white' : 'text-gray-500'}`} title="Guided mode: show explanations and checklists">Guided</button>
-              <button onClick={() => setLearningMode('experiment')} className={`rounded px-2 py-0.5 text-xs font-semibold ${learningMode === 'experiment' ? 'bg-blue-600 text-white' : 'text-gray-500'}`} title="Experiment mode: denser workbench controls">Experiment</button>
-            </div>
-            <label className="hidden items-center gap-1 text-xs text-gray-500 dark:text-gray-300 xl:flex" title="Global animation speed">
-              Speed
-              <input aria-label="Animation speed" type="range" min={0.25} max={2} step={0.25} value={animationSpeed} onChange={event => setAnimationSpeed(Number(event.target.value))} className="w-20 accent-blue-600" />
-            </label>
-            <button onClick={() => setAnimationPaused(value => !value)} className="hidden rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 xl:block" title="Pause/resume iterative animations">
-              {animationPaused ? 'Resume Anim' : 'Pause Anim'}
-            </button>
-            <button onClick={() => setShortcutHelpOpen(true)} className="hidden rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 sm:block" title="Keyboard shortcuts (?)">
-              ?
-            </button>
           </div>
           <button
             onClick={toggleTheme}
@@ -178,7 +159,7 @@ export const RootLayout: React.FC = () => {
           </button>
         </div>
         {currentItem && algorithmStatus && (
-          <div className={`shrink-0 border-b px-4 py-2 ${statusTone}`}>
+          <div className={`shrink-0 border-b px-4 py-2 ${statusTone}`} key={favoriteTick}>
             <div className="flex flex-wrap items-center gap-2">
               {algorithmStatus === 'Implemented' ? <CheckCircle2 size={15} /> : algorithmStatus === 'Scaffold' ? <AlertTriangle size={15} /> : <Info size={15} />}
               <Link to="/implementation-matrix" className="text-xs font-bold uppercase tracking-wide hover:underline">Implementation Status</Link>
@@ -191,13 +172,37 @@ export const RootLayout: React.FC = () => {
                   ? 'Quality gate: real computation, unique controls, chart, metrics, export/save path.'
                   : 'This route is clearly labeled until real computation and checklist coverage are complete.'}
               </span>
-              {proofItems.length > 0 && (
-                <details className="w-full text-xs">
-                  <summary className="cursor-pointer font-bold">Implemented because...</summary>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {proofItems.map(item => <span key={item} className="rounded bg-white/60 px-2 py-1 dark:bg-gray-900/40">{item}</span>)}
-                  </div>
-                </details>
+              <button
+                onClick={() => {
+                  toggleFavoriteRoute(currentItem.route);
+                  setFavoriteTick(tick => tick + 1);
+                }}
+                className="inline-flex items-center gap-1 rounded border border-current/20 bg-white/50 px-2 py-1 text-[11px] font-semibold hover:bg-white/80 dark:bg-gray-900/30 dark:hover:bg-gray-900/50"
+                title={isFavorite ? 'Remove from pinned algorithms' : 'Pin this algorithm'}
+                aria-label={isFavorite ? 'Remove pinned algorithm' : 'Pin algorithm'}
+              >
+                <Star size={13} className={isFavorite ? 'fill-current' : ''} />
+                <span className="hidden sm:inline">{isFavorite ? 'Pinned' : 'Pin'}</span>
+              </button>
+              {adjacent.previous && (
+                <Link
+                  to={adjacent.previous.route}
+                  className="inline-flex items-center gap-1 rounded border border-current/20 bg-white/50 px-2 py-1 text-[11px] font-semibold hover:bg-white/80 dark:bg-gray-900/30 dark:hover:bg-gray-900/50"
+                  title={`Previous: ${adjacent.previous.label}`}
+                >
+                  <ChevronLeft size={13} />
+                  <span className="hidden sm:inline">Previous</span>
+                </Link>
+              )}
+              {adjacent.next && (
+                <Link
+                  to={adjacent.next.route}
+                  className="inline-flex items-center gap-1 rounded border border-current/20 bg-white/50 px-2 py-1 text-[11px] font-semibold hover:bg-white/80 dark:bg-gray-900/30 dark:hover:bg-gray-900/50"
+                  title={`Next: ${adjacent.next.label}`}
+                >
+                  <span className="hidden sm:inline">Next</span>
+                  <ChevronRight size={13} />
+                </Link>
               )}
               <div className="flex w-full flex-wrap gap-1 pt-1 sm:w-auto sm:pt-0">
                 {algorithmStatus === 'Implemented' && ['data', 'controls', 'chart', 'metrics', 'export', 'save'].map(item => (
@@ -231,33 +236,6 @@ export const RootLayout: React.FC = () => {
         </main>
       </div>
       <RouteSearchModal open={routeSearchOpen} onClose={() => setRouteSearchOpen(false)} />
-      {shortcutHelpOpen && (
-        <div className="fixed inset-0 z-50 bg-gray-950/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
-          <div className="mx-auto mt-16 max-w-md rounded-xl border border-gray-200 bg-white p-4 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-bold text-gray-900 dark:text-gray-100">Keyboard Shortcuts</h2>
-              <button onClick={() => setShortcutHelpOpen(false)} className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Close shortcuts">x</button>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              {[
-                ['Ctrl+K', 'Route search'],
-                ['?', 'Open shortcut help'],
-                ['T', 'Train'],
-                ['R', 'Reset'],
-                ['S', 'Step animation'],
-                ['Ctrl+S', 'Save'],
-                ['E', 'Export'],
-                ['Esc', 'Close modal'],
-              ].map(([key, label]) => (
-                <div key={key} className="flex items-center justify-between rounded bg-gray-50 px-3 py-2 dark:bg-gray-800">
-                  <span>{label}</span>
-                  <kbd className="rounded border border-gray-200 px-1.5 py-0.5 text-xs dark:border-gray-700">{key}</kbd>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

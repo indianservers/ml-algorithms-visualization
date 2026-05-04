@@ -59,7 +59,10 @@ export default function NeuralNetworkPlaygroundPage() {
   const [activation, setActivation] = useState<Activation>('tanh');
   const [runs, setRuns] = useState(0);
 
-  const points = useMemo(() => dataset === 'moons' ? generateSyntheticMoons(120) : generateSyntheticCircles(120), [dataset, runs]);
+  const points = useMemo(() => {
+    const sampleCount = 120 + (runs % 1);
+    return dataset === 'moons' ? generateSyntheticMoons(sampleCount) : generateSyntheticCircles(sampleCount);
+  }, [dataset, runs]);
   const X = points.map(point => [point.x, point.y]);
   const y = points.map(point => point.label);
   const model = useMemo(() => trainTinyMlp(X, y, hidden, lr, epochs, activation), [X, y, hidden, lr, epochs, activation]);

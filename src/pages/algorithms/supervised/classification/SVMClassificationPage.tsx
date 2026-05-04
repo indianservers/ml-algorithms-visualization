@@ -1,2 +1,5 @@
-import SupervisedClassificationWorkbench from '../SupervisedClassificationWorkbench';
-export default function SVMClassificationPage() { return <SupervisedClassificationWorkbench mode="svm" />; }
+import SVMRealPage from './SVMRealPage';
+
+export default function SVMClassificationPage() {
+  return <SVMRealPage />;
+}

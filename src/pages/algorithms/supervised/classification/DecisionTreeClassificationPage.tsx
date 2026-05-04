@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import { GitBranch } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
-import { Card, InfoBox } from '../../../components/common/Card';
+import { Card } from '../../../components/common/Card';
 import { Tabs } from '../../../components/common/Tabs';
 import { MetricsPanel } from '../../../components/ml/MetricsPanel';
 import { HyperparameterPanel, HyperparamDef } from '../../../components/ml/HyperparameterPanel';
@@ -182,16 +182,20 @@ export default function DecisionTreeClassificationPage() {
     petal_width: '1.3',
   });
 
-  const rawData = irisDataset.data as Record<string, unknown>[];
-  const X = rawData.map(d => FEATURE_NAMES.map(f => d[f] as number));
-  const y = rawData.map(d => {
-    const sp = d['species'] as string;
-    return sp === 'setosa' ? 0 : sp === 'versicolor' ? 1 : 2;
-  });
+  const { X, y } = useMemo(() => {
+    const rawData = irisDataset.data as Record<string, unknown>[];
+    return {
+      X: rawData.map(d => FEATURE_NAMES.map(f => d[f] as number)),
+      y: rawData.map(d => {
+        const sp = d['species'] as string;
+        return sp === 'setosa' ? 0 : sp === 'versicolor' ? 1 : 2;
+      }),
+    };
+  }, []);
 
   const tree = useMemo(() =>
     buildDecisionTree(X, y, maxDepth, minSamples, criterion),
-    [maxDepth, minSamples, criterion]
+    [X, y, maxDepth, minSamples, criterion]
   );
 
   const predictions = useMemo(() => X.map(xi => predictTree(tree, xi)), [tree, X]);

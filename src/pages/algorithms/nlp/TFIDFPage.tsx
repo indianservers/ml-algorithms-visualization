@@ -25,11 +25,6 @@ function tfidfCellBg(value: number, max: number): React.CSSProperties {
   return { backgroundColor: `rgba(59, 130, 246, ${0.08 + intensity * 0.75})` };
 }
 
-function idfCellBg(value: number, maxIdf: number): React.CSSProperties {
-  const intensity = maxIdf > 0 ? value / maxIdf : 0;
-  return { backgroundColor: `rgba(139, 92, 246, ${0.08 + intensity * 0.6})` };
-}
-
 // ─── CSV export ───────────────────────────────────────────────────────────────
 function matrixToCSV(
   vocab: string[],

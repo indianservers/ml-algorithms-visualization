@@ -1,4 +1,4 @@
-import { mean, std } from '../../math/statistics';
+import { mean } from '../../math/statistics';
 
 export interface PCAResult {
   components: number[][];
@@ -8,19 +8,6 @@ export interface PCAResult {
   covarianceMatrix: number[][];
   eigenvalues: number[];
   mean: number[];
-}
-
-function matMul(A: number[][], B: number[][]): number[][] {
-  const rows = A.length, cols = B[0].length, inner = B.length;
-  return Array.from({ length: rows }, (_, i) =>
-    Array.from({ length: cols }, (_, j) =>
-      Array.from({ length: inner }, (_, k) => A[i][k] * B[k][j]).reduce((a, b) => a + b, 0)
-    )
-  );
-}
-
-function transpose(M: number[][]): number[][] {
-  return M[0].map((_, j) => M.map(row => row[j]));
 }
 
 function covarianceMatrix(Xs: number[][]): number[][] {
@@ -41,7 +28,7 @@ function powerIteration(A: number[][], numComponents: number, maxIter = 500): { 
   const p = A.length;
   const vectors: number[][] = [];
   const values: number[] = [];
-  let deflated = A.map(row => [...row]);
+  const deflated = A.map(row => [...row]);
 
   for (let k = 0; k < numComponents; k++) {
     let v = Array.from({ length: p }, () => Math.random() - 0.5);
@@ -51,7 +38,6 @@ function powerIteration(A: number[][], numComponents: number, maxIter = 500): { 
 
     for (let iter = 0; iter < maxIter; iter++) {
       const Av = deflated.map(row => row.reduce((s, x, j) => s + x * v[j], 0));
-      const eigenval = Av.reduce((s, x, j) => s + x * v[j], 0);
       norm = Math.sqrt(Av.reduce((s, x) => s + x * x, 0));
       if (norm < 1e-10) break;
       const vNew = Av.map(x => x / norm);
@@ -70,7 +56,6 @@ function powerIteration(A: number[][], numComponents: number, maxIter = 500): { 
 }
 
 export function pca(X: number[][], numComponents = 2): PCAResult {
-  const n = X.length;
   const p = X[0].length;
   const colMeans = Array.from({ length: p }, (_, j) => mean(X.map(row => row[j])));
   const Xc = X.map(row => row.map((v, j) => v - colMeans[j]));

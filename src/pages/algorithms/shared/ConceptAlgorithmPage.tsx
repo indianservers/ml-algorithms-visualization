@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Activity, BarChart3, BookOpen, Brain, Database, Download, FlaskConical,
   GitBranch, Layers, Play, Settings2, Target, Upload,
@@ -11,6 +12,7 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
 import type { BadgeType } from '../../../data/navigation';
 import { allSampleDatasets, generateSyntheticBlobs } from '../../../data/sampleDatasets';
+import { getAlgorithmSampleDatasets } from '../../../data/algorithmDatasets';
 import { saveExperiment, generateExperimentId } from '../../../stores/experimentStore';
 
 export interface AlgorithmModuleConfig {
@@ -76,18 +78,25 @@ function Matrix({ labels }: { labels: ReadonlyArray<string> }) {
   );
 }
 
-function hyperparamParts(param: AlgorithmModuleConfig['hyperparameters'][number]) {
-  const item = param as any;
-  return Array.isArray(item) ? { name: item[0], value: item[1], detail: item[2] } : item;
+type HyperparameterParts = { name: string; value: string; detail: string };
+type MetricParts = { label: string; value: string };
+
+function hyperparamParts(param: AlgorithmModuleConfig['hyperparameters'][number]): HyperparameterParts {
+  if ('name' in param) return param;
+  const [name, value, detail] = param;
+  return { name, value, detail };
 }
 
-function metricParts(metric: AlgorithmModuleConfig['metrics'][number]) {
-  const item = metric as any;
-  return Array.isArray(item) ? { label: item[0], value: item[1] } : item;
+function metricParts(metric: AlgorithmModuleConfig['metrics'][number]): MetricParts {
+  if ('label' in metric) return metric;
+  const [label, value] = metric;
+  return { label, value };
 }
 
 export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModuleConfig }) {
-  const [datasetId, setDatasetId] = useState(allSampleDatasets[0]?.id ?? 'synthetic');
+  const location = useLocation();
+  const algorithmDatasets = useMemo(() => getAlgorithmSampleDatasets(location.pathname, config.category), [location.pathname, config.category]);
+  const [datasetId, setDatasetId] = useState(algorithmDatasets[0]?.id ?? allSampleDatasets[0]?.id ?? 'synthetic');
   const [saved, setSaved] = useState(false);
   const Icon = iconMap[config.icon ?? 'lab'];
   const chartData = useMemo(() => generateSyntheticBlobs(36, 3).map((point, i) => ({
@@ -97,7 +106,7 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
     metric: config.chartLabels[i % config.chartLabels.length] ?? `S${i}`,
   })), [config.chartLabels]);
 
-  const selectedDataset = allSampleDatasets.find(ds => ds.id === datasetId) ?? allSampleDatasets[0];
+  const selectedDataset = algorithmDatasets.find(ds => ds.id === datasetId) ?? algorithmDatasets[0] ?? allSampleDatasets[0];
 
   const handleSave = async () => {
     await saveExperiment({
@@ -177,7 +186,7 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
           <Card title="Dataset Input Panel" icon={<Database size={14} />}>
             <div className="space-y-3 text-xs text-gray-600 dark:text-gray-300">
               <select value={datasetId} onChange={event => setDatasetId(event.target.value)} className="w-full rounded border border-gray-200 bg-white px-2 py-2 dark:border-gray-700 dark:bg-gray-900">
-                {allSampleDatasets.map(dataset => <option key={dataset.id} value={dataset.id}>{dataset.name}</option>)}
+                {algorithmDatasets.map(dataset => <option key={dataset.id} value={dataset.id}>{dataset.name}</option>)}
               </select>
               <div className="grid grid-cols-2 gap-2">
                 <button className="rounded border border-gray-200 px-2 py-2 text-left dark:border-gray-700">CSV/JSON upload</button>

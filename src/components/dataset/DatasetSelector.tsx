@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Database, Upload, Table, Shuffle } from 'lucide-react';
+import { Database, Upload, Shuffle } from 'lucide-react';
 import { Tabs } from '../common/Tabs';
 
 interface DatasetSelectorProps {
@@ -83,19 +83,3 @@ export const DatasetSelector: React.FC<DatasetSelectorProps> = ({
     </Tabs>
   );
 };
-
-export function parseCSV(content: string): { columns: string[]; data: Record<string, unknown>[] } {
-  const lines = content.trim().split('\n').filter(Boolean);
-  if (lines.length < 2) return { columns: [], data: [] };
-  const columns = lines[0].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-  const data = lines.slice(1).map(line => {
-    const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-    const row: Record<string, unknown> = {};
-    columns.forEach((col, i) => {
-      const val = values[i] ?? '';
-      row[col] = isNaN(Number(val)) || val === '' ? val : Number(val);
-    });
-    return row;
-  });
-  return { columns, data };
-}

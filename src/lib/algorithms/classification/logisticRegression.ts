@@ -15,7 +15,6 @@ export function logisticRegression(
   maxIter = 1000,
   onStep?: (iter: number, loss: number, weights: number[], bias: number) => void
 ): LogisticRegressionResult {
-  const n = y.length;
   const p = X[0].length;
   let weights = Array(p).fill(0);
   let bias = 0;

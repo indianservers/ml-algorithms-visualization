@@ -1,18 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { Line, LineChart, Scatter, ScatterChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, BarChart } from 'recharts';
+import { useMemo, useState } from 'react';
+import { Scatter, ScatterChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, BarChart } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Card, InfoBox } from '../../components/common/Card';
 import { MetricsPanel } from '../../components/ml/MetricsPanel';
-import { ChartToolbar } from '../../../components/common/ChartToolbar';
-import { DatasetQualityPanel } from '../../../components/dataset/DatasetQualityPanel';
-import { DatasetSummaryStrip } from '../../../components/dataset/DatasetSummaryStrip';
-import { EditableDataGrid } from '../../../components/dataset/EditableDataGrid';
 import { housingDataset, generateLinearData } from '../../../data/sampleDatasets';
 import { mae, mse, rSquared, rmse } from '../../../lib/math/metrics';
-import { profileDataset, validateDataset, type DataRow } from '../../../lib/preprocessing/dataProfile';
-import { saveModelMetadata } from '../../../stores/experimentStore';
 
 export type RegressionMode = 'multiple' | 'polynomial' | 'ridge' | 'lasso' | 'elastic' | 'tree' | 'forest' | 'boosting' | 'svr';
 
@@ -76,7 +69,6 @@ function trainStump(xs: number[], y: number[]) {
 }
 
 export default function SupervisedRegressionWorkbench({ mode }: { mode: RegressionMode }) {
-  const location = useLocation();
   const copy = modeCopy[mode];
   const [degree, setDegree] = useState(3);
   const [alpha, setAlpha] = useState(mode === 'ridge' ? 0.8 : 0.2);
@@ -84,21 +76,10 @@ export default function SupervisedRegressionWorkbench({ mode }: { mode: Regressi
   const [estimators, setEstimators] = useState(8);
   const [predictionX, setPredictionX] = useState(6);
 
-  const initialRaw = useMemo(() => mode === 'multiple'
+  const raw = useMemo(() => mode === 'multiple'
     ? (housingDataset.data as { area_sqft: number; bedrooms: number; price: number }[]).map(row => ({ x: row.area_sqft / 500, y: row.price / 10000, aux: row.bedrooms }))
     : generateLinearData(42, 7, 18, 3).map(row => ({ x: row.x, y: row.y, aux: Math.sin(row.x) })),
   [mode]);
-  const [editedRaw, setEditedRaw] = useState<DataRow[]>(initialRaw);
-  const [pinnedChart, setPinnedChart] = useState(true);
-  const [trainRatio, setTrainRatio] = useState(0.8);
-  useEffect(() => setEditedRaw(initialRaw), [initialRaw]);
-  const raw = editedRaw.map(row => ({
-    x: Number(row.x),
-    y: Number(row.y),
-    aux: Number(row.aux ?? 0),
-  })).filter(row => Number.isFinite(row.x) && Number.isFinite(row.y));
-  const validation = validateDataset(raw, ['x', 'aux'], 'y');
-  const profile = validation.profile;
 
   const model = useMemo(() => {
     const xs = raw.map(row => row.x);
@@ -112,7 +93,7 @@ export default function SupervisedRegressionWorkbench({ mode }: { mode: Regressi
       return { kind: 'forest', weights: stumps.map(s => s.threshold), predictX: (x: number) => stumps.reduce((sum, s) => sum + stumpPredict(x, s.threshold, s.left, s.right), 0) / stumps.length, detail: stumps[0] };
     }
     if (mode === 'boosting') {
-      let base = y.reduce((a, b) => a + b, 0) / y.length;
+      const base = y.reduce((a, b) => a + b, 0) / y.length;
       const stages: ReturnType<typeof trainStump>[] = [];
       const lr = 0.18;
       let preds = y.map(() => base);
@@ -140,13 +121,6 @@ export default function SupervisedRegressionWorkbench({ mode }: { mode: Regressi
   }, [raw, mode, degree, alpha, l1Ratio, estimators]);
 
   const predictions = raw.map(row => model.predictX(row.x));
-  const actual = raw.map(r => r.y);
-  const baselineValue = actual.reduce((sum, value) => sum + value, 0) / Math.max(1, actual.length);
-  const baselinePredictions = actual.map(() => baselineValue);
-  const baselineRmse = rmse(actual, baselinePredictions);
-  const modelRmse = rmse(actual, predictions);
-  const improvement = baselineRmse > 0 ? ((baselineRmse - modelRmse) / baselineRmse) * 100 : 0;
-  const trainRows = Math.round(raw.length * trainRatio);
   const chartData = raw.map((row, i) => ({ x: row.x, y: row.y, predicted: predictions[i], residual: row.y - predictions[i] })).sort((a, b) => a.x - b.x);
   const curve = Array.from({ length: 80 }, (_, i) => {
     const x = Math.min(...raw.map(r => r.x)) + i * (Math.max(...raw.map(r => r.x)) - Math.min(...raw.map(r => r.x))) / 79;
@@ -154,58 +128,31 @@ export default function SupervisedRegressionWorkbench({ mode }: { mode: Regressi
   });
   const newPrediction = model.predictX(predictionX);
 
-  useEffect(() => {
-    saveModelMetadata({
-      id: `last_${location.pathname.replaceAll('/', '_')}`,
-      name: `${copy.title} latest browser model`,
-      algorithmId: location.pathname,
-      algorithmName: copy.title,
-      savedAt: Date.now(),
-      parameters: { mode, degree, alpha, l1Ratio, estimators, trainRatio },
-      metrics: { rmse: modelRmse, r2: rSquared(actual, predictions) },
-      artifactType: 'metadata',
-    }).catch(() => undefined);
-  }, [location.pathname, copy.title, mode, degree, alpha, l1Ratio, estimators, trainRatio, modelRmse]);
-
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4">
       <PageHeader title={copy.title} subtitle={copy.subtitle} badge={mode === 'svr' ? 'Educational' : 'Implemented'} category="Supervised Learning / Regression" icon={<TrendingUp size={22} />} />
-      <DatasetSummaryStrip profile={profile} target="y" />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_1fr]">
         <div className="space-y-4">
           <Card title="Dataset and Hyperparameters">
             <p className="mb-3 text-xs text-gray-500">{copy.controls}</p>
-            <label className="text-xs font-semibold">Train split: {Math.round(trainRatio * 100)}%</label><input className="w-full accent-blue-600" type="range" min={0.5} max={0.9} step={0.05} value={trainRatio} onChange={e => setTrainRatio(Number(e.target.value))} />
-            <div className="my-3 h-3 overflow-hidden rounded bg-gray-200 dark:bg-gray-700"><div className="h-full bg-blue-600" style={{ width: `${trainRatio * 100}%` }} /></div>
             {mode === 'polynomial' && <><label className="text-xs font-semibold">Degree: {degree}</label><input className="w-full accent-blue-600" type="range" min={1} max={8} value={degree} onChange={e => setDegree(Number(e.target.value))} /></>}
             {['ridge', 'lasso', 'elastic', 'svr'].includes(mode) && <><label className="text-xs font-semibold">Alpha / epsilon: {alpha.toFixed(2)}</label><input className="w-full accent-blue-600" type="range" min={0} max={2} step={0.05} value={alpha} onChange={e => setAlpha(Number(e.target.value))} /></>}
             {mode === 'elastic' && <><label className="text-xs font-semibold">L1 ratio: {l1Ratio.toFixed(2)}</label><input className="w-full accent-blue-600" type="range" min={0} max={1} step={0.05} value={l1Ratio} onChange={e => setL1Ratio(Number(e.target.value))} /></>}
             {['forest', 'boosting'].includes(mode) && <><label className="text-xs font-semibold">Estimators: {estimators}</label><input className="w-full accent-blue-600" type="range" min={2} max={30} value={estimators} onChange={e => setEstimators(Number(e.target.value))} /></>}
             <label className="mt-3 block text-xs font-semibold">Prediction X: {predictionX.toFixed(1)}</label><input className="w-full accent-blue-600" type="range" min={0} max={12} step={0.1} value={predictionX} onChange={e => setPredictionX(Number(e.target.value))} />
-            <label className="mt-3 flex items-center gap-2 text-xs font-semibold"><input type="checkbox" checked={pinnedChart} onChange={event => setPinnedChart(event.target.checked)} /> Pin main chart while tuning</label>
           </Card>
-          <DatasetQualityPanel profile={profile} errors={validation.errors} warnings={validation.warnings} />
           <MetricsPanel title="Regression Metrics" metrics={[
             { label: 'MAE', value: mae(raw.map(r => r.y), predictions), format: 'fixed4' },
             { label: 'MSE', value: mse(raw.map(r => r.y), predictions), format: 'fixed4' },
             { label: 'RMSE', value: rmse(raw.map(r => r.y), predictions), format: 'fixed4', color: 'blue' },
             { label: 'R2', value: rSquared(raw.map(r => r.y), predictions), format: 'fixed4', color: 'green' },
           ]} />
-          <Card title="Baseline Comparison">
-            <p className="text-xs text-gray-500">Mean regressor baseline RMSE: <span className="font-mono font-bold">{baselineRmse.toFixed(4)}</span></p>
-            <p className={`mt-2 text-sm font-bold ${improvement >= 0 ? 'text-green-600' : 'text-red-600'}`}>Model improved by {improvement.toFixed(1)}% over baseline</p>
-            <p className="mt-1 text-[11px] text-gray-500">Train rows: {trainRows} / Test rows: {raw.length - trainRows}</p>
-          </Card>
           <Card title="Prediction Output"><p className="font-mono text-2xl font-bold">{newPrediction.toFixed(3)}</p><p className="text-xs text-gray-500">Computed in browser from the fitted model.</p></Card>
         </div>
         <div className="space-y-4">
-          <div className={pinnedChart ? 'sticky top-3 z-10' : ''}>
           <Card title="Actual vs Model Curve">
-            <div className="mb-2 flex justify-end"><ChartToolbar onCopy={() => navigator.clipboard?.writeText(JSON.stringify(chartData))} onDownload={() => navigator.clipboard?.writeText('PNG export hook: use browser screenshot or chart SVG capture')} onReset={() => setPredictionX(6)} /></div>
             <ResponsiveContainer width="100%" height={340}><ScatterChart><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="x" type="number" /><YAxis dataKey="y" type="number" /><Tooltip /><Scatter data={chartData} fill="#2563eb" /><Scatter data={curve} line={{ stroke: '#dc2626', strokeWidth: 2 }} fill="#dc2626" /></ScatterChart></ResponsiveContainer>
           </Card>
-          </div>
-          <EditableDataGrid rows={editedRaw} onChange={setEditedRaw} />
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <Card title="Residual Plot"><ResponsiveContainer width="100%" height={240}><ScatterChart><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="x" type="number" /><YAxis dataKey="residual" type="number" /><Tooltip /><Scatter data={chartData} fill="#9333ea" /></ScatterChart></ResponsiveContainer></Card>
             <Card title="Coefficient / Stage Output"><ResponsiveContainer width="100%" height={240}><BarChart data={model.weights.map((value, i) => ({ name: `w${i + 1}`, value: Number(value.toFixed(3)) }))}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="value" fill="#059669" /></BarChart></ResponsiveContainer></Card>

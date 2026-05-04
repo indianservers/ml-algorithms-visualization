@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart,
+  ResponsiveContainer,
 } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -52,31 +52,6 @@ const LOAN_SCORES = loanRows.map(r =>
 );
 
 // ─── Build combined ROC data for chart ───────────────────────────────────────
-function buildRocData(
-  fpr: number[], tpr: number[], label: string
-): Array<Record<string, number>> {
-  return fpr.map((f, i) => ({ fpr: parseFloat(f.toFixed(3)), [label]: parseFloat(tpr[i].toFixed(3)) }));
-}
-
-function mergeRocData(
-  datasets: Array<{ fpr: number[]; tpr: number[]; label: string }>
-): Array<Record<string, number | undefined>> {
-  // Collect all unique FPR values across datasets, merge by FPR
-  const allPoints: Array<Record<string, number | undefined>> = [];
-  const maxLen = Math.max(...datasets.map(d => d.fpr.length));
-  for (let i = 0; i < maxLen; i++) {
-    const pt: Record<string, number | undefined> = {};
-    datasets.forEach(({ fpr, tpr, label }) => {
-      if (i < fpr.length) {
-        pt['fpr'] = parseFloat(fpr[i].toFixed(3));
-        pt[label] = parseFloat(tpr[i].toFixed(3));
-      }
-    });
-    allPoints.push(pt);
-  }
-  return allPoints;
-}
-
 // ─── Interpretation guide ────────────────────────────────────────────────────
 const AUC_GUIDE = [
   { range: '0.90 – 1.00', label: 'Excellent',    color: 'text-green-600' },

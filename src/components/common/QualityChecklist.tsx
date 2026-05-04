@@ -1,7 +1,24 @@
 import { CheckCircle2, Circle } from 'lucide-react';
 import { Card } from './Card';
 
-const defaultItems = ['Dataset', 'Controls', 'Chart', 'Metrics', 'Prediction', 'Export', 'Save', 'Validation'];
+const defaultItems = [
+  'Dataset',
+  'Controls',
+  'Chart',
+  'Metrics',
+  'Prediction',
+  'Export',
+  'Save',
+  'Validation',
+  'Objectives',
+  'Pseudocode',
+  'Quiz',
+  'Challenge',
+  'Notes',
+  'Mistakes',
+  'Equivalent Code',
+  'Model Card',
+];
 
 export function QualityChecklist({ completeItems = [] }: { completeItems?: string[] }) {
   const complete = new Set(completeItems);

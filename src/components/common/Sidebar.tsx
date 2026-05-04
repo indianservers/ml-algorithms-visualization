@@ -1,9 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { navigationData } from '../../data/navigation';
 import { Badge } from './Badge';
 import type { BadgeType } from '../../data/navigation';
-import { getImplementationStatus } from '../../data/implementationStatus';
+import {
+  getAllAlgorithms,
+  getCategoryProgress,
+  getFavoriteRoutes,
+  getImplementationStatus,
+  getRecentRoutes,
+} from '../../data/implementationStatus';
 import {
   TrendingUp, GitBranch, Network, Minimize2, Brain, BarChart2, Filter,
   Activity, MessageSquare, Eye, Star, Play, Lightbulb, Zap, Layers,
@@ -30,10 +36,15 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [badgeFilter, setBadgeFilter] = useState('All');
+  const [favoriteRoutes, setFavoriteRoutes] = useState<string[]>(() => getFavoriteRoutes());
+  const [recentRoutes, setRecentRoutes] = useState<string[]>(() => getRecentRoutes());
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('ml-suite-expanded-categories');
+    if (saved) return new Set(JSON.parse(saved) as string[]);
     const initial = new Set<string>();
     navigationData.forEach(cat => {
       if (cat.items.some(item => location.pathname.startsWith(item.route))) {
@@ -42,6 +53,39 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     });
     return initial;
   });
+
+  const allAlgorithms = useMemo(() => getAllAlgorithms(), []);
+  const favoriteItems = favoriteRoutes
+    .map(route => allAlgorithms.find(item => item.route === route))
+    .filter(Boolean)
+    .slice(0, 5);
+  const recentItems = recentRoutes
+    .map(route => allAlgorithms.find(item => item.route === route))
+    .filter(Boolean)
+    .slice(0, 5);
+  const filtersActive = search.trim() || statusFilter !== 'All' || badgeFilter !== 'All';
+
+  React.useEffect(() => {
+    const refresh = () => {
+      setFavoriteRoutes(getFavoriteRoutes());
+      setRecentRoutes(getRecentRoutes());
+    };
+    window.addEventListener('ml:favorites-changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('ml:favorites-changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const id = window.setTimeout(() => setRecentRoutes(getRecentRoutes()), 0);
+    return () => window.clearTimeout(id);
+  }, [location.pathname]);
+
+  React.useEffect(() => {
+    localStorage.setItem('ml-suite-expanded-categories', JSON.stringify([...expandedCategories]));
+  }, [expandedCategories]);
 
   const filteredNav = useMemo(() => {
     const statusMatch = (route: string) => statusFilter === 'All' || getImplementationStatus(route) === statusFilter;
@@ -62,7 +106,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const toggleCategory = (cat: string) => {
     setExpandedCategories(prev => {
       const next = new Set(prev);
-      next.has(cat) ? next.delete(cat) : next.add(cat);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
       return next;
     });
   };
@@ -75,9 +120,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         </button>
         <NavLink to="/" className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"><Home size={18} /></NavLink>
         {navigationData.map(cat => (
-          <div key={cat.category} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1" title={cat.category}>
+          <button
+            key={cat.category}
+            onClick={() => {
+              onToggle();
+              setExpandedCategories(prev => new Set(prev).add(cat.category));
+              navigate(cat.items[0]?.route ?? '/');
+            }}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded"
+            title={`${cat.category} (${getCategoryProgress(cat.category).implemented}/${getCategoryProgress(cat.category).total})`}
+          >
             {iconMap[cat.icon] ?? <Layers size={15} />}
-          </div>
+          </button>
         ))}
       </div>
     );
@@ -133,6 +187,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
             <option>Browser Inference</option>
           </select>
         </div>
+        {filtersActive && (
+          <button
+            onClick={() => {
+              setSearch('');
+              setStatusFilter('All');
+              setBadgeFilter('All');
+            }}
+            className="mt-2 w-full rounded-md border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            Clear filters
+          </button>
+        )}
       </div>
 
       {/* Nav */}
@@ -147,9 +213,40 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
           <Home size={13} /> Home
         </NavLink>
 
+        {!filtersActive && favoriteItems.length > 0 && (
+          <div className="mx-2 mt-2 rounded-lg border border-yellow-200 bg-yellow-50/70 p-2 dark:border-yellow-900/60 dark:bg-yellow-950/20">
+            <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wide text-yellow-700 dark:text-yellow-300">Pinned</p>
+            {favoriteItems.map(item => item && (
+              <NavLink key={item.route} to={item.route} className="flex items-center justify-between rounded px-2 py-1.5 text-xs text-yellow-900 hover:bg-yellow-100 dark:text-yellow-100 dark:hover:bg-yellow-900/30">
+                <span className="truncate">{item.label}</span>
+                <Star size={11} className="fill-current" />
+              </NavLink>
+            ))}
+          </div>
+        )}
+
+        {!filtersActive && recentItems.length > 0 && (
+          <div className="mx-2 mt-2 rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-800/60">
+            <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">Recent</p>
+            {recentItems.map(item => item && (
+              <NavLink key={item.route} to={item.route} className="flex items-center justify-between rounded px-2 py-1.5 text-xs text-gray-700 hover:bg-white dark:text-gray-300 dark:hover:bg-gray-700">
+                <span className="truncate">{item.label}</span>
+                <Badge type={getImplementationStatus(item.route)} size="sm" />
+              </NavLink>
+            ))}
+          </div>
+        )}
+
+        {filteredNav.length === 0 && (
+          <div className="mx-3 mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3 text-center text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+            No algorithms match these filters.
+          </div>
+        )}
+
         {filteredNav.map(cat => {
           const isExpanded = expandedCategories.has(cat.category) || search.length > 0;
           const hasActive = cat.items.some(item => location.pathname === item.route);
+          const progress = getCategoryProgress(cat.category);
           return (
             <div key={cat.category} className="mt-1">
               <button
@@ -159,6 +256,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
               >
                 <span className="shrink-0">{iconMap[cat.icon] ?? <Layers size={13} />}</span>
                 <span className="flex-1 text-left truncate">{cat.category}</span>
+                <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                  {progress.implemented}/{progress.total}
+                </span>
                 {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
               </button>
               {isExpanded && (

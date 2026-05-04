@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, LineChart, Line, ReferenceLine, Legend,
+  ResponsiveContainer, LineChart, Line, ReferenceLine,
 } from 'recharts';
-import { TrendingUp, AlertTriangle, Calculator, Target } from 'lucide-react';
+import { TrendingUp, Calculator } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
 import { Tabs } from '../../../components/common/Tabs';

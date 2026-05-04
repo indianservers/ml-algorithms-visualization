@@ -3,7 +3,7 @@ import { Copy, Check, BarChart2, Database, Edit3 } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
 import { Tabs } from '../../../components/common/Tabs';
-import { binaryMetrics, confusionMatrix } from '../../../lib/math/metrics';
+import { binaryMetrics } from '../../../lib/math/metrics';
 import { loanDataset } from '../../../data/sampleDatasets';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -217,7 +217,6 @@ export default function ConfusionMatrixPage() {
                 const tp_i = multiMatrix[i][i];
                 const fp_i = multiMatrix.reduce((s, r, ri) => s + (ri !== i ? r[i] : 0), 0);
                 const fn_i = multiMatrix[i].reduce((s, v, ci) => s + (ci !== i ? v : 0), 0);
-                const tn_i = MULTI_ACTUAL.length - tp_i - fp_i - fn_i;
                 const prec_i = tp_i / (tp_i + fp_i) || 0;
                 const rec_i  = tp_i / (tp_i + fn_i) || 0;
                 const f1_i   = prec_i + rec_i > 0 ? 2 * prec_i * rec_i / (prec_i + rec_i) : 0;

@@ -14,7 +14,7 @@ const data = [
 
 export default function CategoricalEncodingPage() {
   const [column, setColumn] = useState<'city' | 'plan' | 'risk'>('plan');
-  const categories = [...new Set(data.map(row => row[column]))];
+  const categories = useMemo(() => [...new Set(data.map(row => row[column]))], [column]);
   const encoded = useMemo(() => {
     const labelMap = Object.fromEntries(categories.map((cat, i) => [cat, i]));
     const freqMap = Object.fromEntries(categories.map(cat => [cat, data.filter(row => row[column] === cat).length / data.length]));

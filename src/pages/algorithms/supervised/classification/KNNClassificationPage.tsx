@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, BarChart, Bar, Cell, Legend,
+  ResponsiveContainer, BarChart, Bar, Cell,
 } from 'recharts';
 import { MapPin, Crosshair } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -274,7 +274,7 @@ export default function KNNClassificationPage() {
                           <Scatter
                             key={c}
                             name={classNames[c]}
-                            data={points.map((p, i) => ({
+                            data={points.map((p) => ({
                               ...p,
                               isNeighbor: neighborIndices.has(data.indexOf(p)),
                             }))}

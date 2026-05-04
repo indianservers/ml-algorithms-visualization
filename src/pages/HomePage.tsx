@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Brain, TrendingUp, Network, Minimize2, BookOpen, FlaskConical, ArrowRight, Zap, Shield, Globe, Clock, Database } from 'lucide-react';
-import { getImplementationStatus, getRecentRoutes, implementationSummary, type ImplementationStatus } from '../data/implementationStatus';
+import { Brain, TrendingUp, Network, Minimize2, BookOpen, FlaskConical, ArrowRight, Zap, Shield, Globe, Clock, Database, GraduationCap, Trophy } from 'lucide-react';
+import { getImplementationStatus, getLearningPath, getRecentRoutes, implementationSummary, type ImplementationStatus } from '../data/implementationStatus';
 import { navigationData } from '../data/navigation';
-import { loadDatasets, loadExperiments, type Experiment, type SavedDataset } from '../stores/experimentStore';
+import { loadExperiments, type Experiment } from '../stores/experimentStore';
+import { getLearningStats } from '../stores/learningStore';
 import { Badge } from '../components/common/Badge';
 
 const categories = [
@@ -68,10 +69,16 @@ export default function HomePage() {
   const [completedOnly, setCompletedOnly] = React.useState(false);
   const [statusFilter, setStatusFilter] = React.useState<'All' | ImplementationStatus>('All');
   const [recentExperiments, setRecentExperiments] = React.useState<Experiment[]>([]);
-  const [recentDatasets, setRecentDatasets] = React.useState<SavedDataset[]>([]);
+  const [, setProgressTick] = React.useState(0);
   const summary = implementationSummary();
+  const learningStats = getLearningStats();
   const recentRoutes = getRecentRoutes();
   const allItems = navigationData.flatMap(category => category.items);
+  const learningPaths = [
+    { title: 'Beginner Path', level: 'Beginner' as const, description: 'Start with the core ideas, visual intuition, and essential metrics.' },
+    { title: 'Intermediate Path', level: 'Intermediate' as const, description: 'Move into regularization, validation, preprocessing, and richer models.' },
+    { title: 'Advanced Path', level: 'Advanced' as const, description: 'Explore ensembles, kernels, deep learning, and probabilistic methods.' },
+  ];
   const scaffoldItems = summary.items.filter(item => getImplementationStatus(item.route) === 'Scaffold').slice(0, 12);
   const recentItems = recentRoutes
     .map(route => allItems.find(item => item.route === route))
@@ -90,9 +97,12 @@ export default function HomePage() {
     loadExperiments()
       .then(items => setRecentExperiments(items.sort((a, b) => b.createdAt - a.createdAt).slice(0, 5)))
       .catch(() => setRecentExperiments([]));
-    loadDatasets()
-      .then(items => setRecentDatasets(items.sort((a, b) => b.savedAt - a.savedAt).slice(0, 5)))
-      .catch(() => setRecentDatasets([]));
+  }, []);
+
+  React.useEffect(() => {
+    const refresh = () => setProgressTick(tick => tick + 1);
+    window.addEventListener('ml:learner-progress-changed', refresh);
+    return () => window.removeEventListener('ml:learner-progress-changed', refresh);
   }, []);
 
   return (
@@ -134,6 +144,91 @@ export default function HomePage() {
             <p className="text-xs font-semibold">{item.label}</p>
           </div>
         ))}
+      </div>
+
+      <div className="mb-10 grid gap-4 lg:grid-cols-3">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 lg:col-span-3">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white"><Trophy size={18} /> Curriculum Dashboard</h2>
+              <p className="text-sm text-gray-500">Progress, quizzes, achievements, and category completion are stored locally in this browser.</p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{learningStats.completed}/{learningStats.total}</p>
+              <p className="text-xs font-semibold text-gray-500">routes completed</p>
+            </div>
+          </div>
+          <div className="mb-4 h-2 overflow-hidden rounded bg-gray-100 dark:bg-gray-800">
+            <div className="h-full bg-green-500" style={{ width: `${learningStats.total ? (learningStats.completed / learningStats.total) * 100 : 0}%` }} />
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg bg-blue-50 p-3 text-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
+              <p className="text-xs font-bold uppercase tracking-wide">Quiz Average</p>
+              <p className="mt-1 text-xl font-bold">{Math.round(learningStats.quizAverage * 100)}%</p>
+            </div>
+            <div className="rounded-lg bg-green-50 p-3 text-green-900 dark:bg-green-950/30 dark:text-green-100">
+              <p className="text-xs font-bold uppercase tracking-wide">Achievements</p>
+              <p className="mt-1 text-xl font-bold">{learningStats.achievements.filter(item => item.earned).length}/{learningStats.achievements.length}</p>
+            </div>
+            <div className="rounded-lg bg-amber-50 p-3 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+              <p className="text-xs font-bold uppercase tracking-wide">Recent Notes</p>
+              <p className="mt-1 text-xl font-bold">{learningStats.recentNotes.length}</p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Achievements</p>
+              <div className="flex flex-wrap gap-2">
+                {learningStats.achievements.map(item => (
+                  <span key={item.id} className={`rounded-full px-3 py-1 text-xs font-semibold ${item.earned ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>
+                    {item.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Category Progress</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {learningStats.categories.slice(0, 8).map(item => (
+                  <div key={item.category} className="rounded border border-gray-200 px-3 py-2 text-xs dark:border-gray-700">
+                    <div className="mb-1 flex justify-between gap-2">
+                      <span className="truncate font-semibold text-gray-700 dark:text-gray-200">{item.category}</span>
+                      <span className="font-mono text-gray-500">{item.done}/{item.total}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded bg-gray-100 dark:bg-gray-800">
+                      <div className="h-full bg-blue-500" style={{ width: `${item.total ? (item.done / item.total) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        {learningPaths.map(path => {
+          const items = getLearningPath(path.level).slice(0, 4);
+          return (
+            <div key={path.level} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+              <div className="mb-3 flex items-start gap-3">
+                <div className="rounded-lg bg-blue-50 p-2 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
+                  <GraduationCap size={18} />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-gray-900 dark:text-white">{path.title}</h2>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{path.description}</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {items.map((item, index) => (
+                  <Link key={item.route} to={item.route} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-blue-900/20">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-white text-[10px] font-bold text-gray-500 dark:bg-gray-900 dark:text-gray-400">{index + 1}</span>
+                    <span className="min-w-0 flex-1 truncate font-semibold">{item.label}</span>
+                    <ArrowRight size={12} className="text-gray-400" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
       <div className="mb-8 flex flex-wrap items-center justify-center gap-3">
         <label className="flex items-center gap-2 rounded border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
@@ -208,20 +303,6 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-        </div>
-      </div>
-
-      <div className="mb-8 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-        <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white"><Database size={17} /> Recent Datasets</h2>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {recentDatasets.length === 0 ? (
-            <p className="text-sm text-gray-500">Saved datasets will appear here with tags and version notes.</p>
-          ) : recentDatasets.map(dataset => (
-            <div key={dataset.id} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
-              <p className="truncate text-xs font-bold text-gray-900 dark:text-gray-100">{dataset.favorite ? '* ' : ''}{dataset.name}</p>
-              <p className="text-[11px] text-gray-500">{dataset.data.length} rows / {dataset.columns.length} columns / {dataset.tags?.join(', ') || 'untagged'}</p>
-            </div>
-          ))}
         </div>
       </div>
 

@@ -6,10 +6,11 @@ import { Card, InfoBox } from '../../../components/common/Card';
 import { MetricsPanel } from '../../../components/ml/MetricsPanel';
 import { trainPerceptron, predictPerceptron, ActivationFn } from '../../../lib/algorithms/neural/perceptron';
 
-const makeData = () => Array.from({ length: 70 }, (_, i) => {
+const makeData = (version: number) => Array.from({ length: 70 }, (_, i) => {
+  const refreshOffset = version % 1;
   const label = i % 2;
-  const x = label ? 1.2 + Math.random() * 1.6 : -2.7 + Math.random() * 1.8;
-  const y = label ? 0.4 + Math.random() * 1.8 : -1.4 + Math.random() * 1.8;
+  const x = (label ? 1.2 + Math.random() * 1.6 : -2.7 + Math.random() * 1.8) + refreshOffset;
+  const y = (label ? 0.4 + Math.random() * 1.8 : -1.4 + Math.random() * 1.8) + refreshOffset;
   return { x, y, label };
 });
 
@@ -20,9 +21,9 @@ export default function PerceptronPage() {
   const [version, setVersion] = useState(0);
   const [epochStep, setEpochStep] = useState(0);
 
-  const data = useMemo(makeData, [version]);
-  const X = data.map(point => [point.x, point.y]);
-  const y = data.map(point => point.label);
+  const data = useMemo(() => makeData(version), [version]);
+  const X = useMemo(() => data.map(point => [point.x, point.y]), [data]);
+  const y = useMemo(() => data.map(point => point.label), [data]);
   const trained = useMemo(() => trainPerceptron(X, y, lr, epochs, activation), [X, y, lr, epochs, activation]);
   const active = trained.steps[Math.min(epochStep, trained.steps.length - 1)] ?? trained.steps[0];
   const weights = active?.weights ?? trained.weights;

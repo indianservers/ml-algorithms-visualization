@@ -3,6 +3,8 @@ import { Database, Download, Trash2, Upload } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
 import { allSampleDatasets } from '../../../data/sampleDatasets';
+import { getAlgorithmSampleDatasets } from '../../../data/algorithmDatasets';
+import { getAllAlgorithms } from '../../../data/implementationStatus';
 import { deleteDataset, loadDatasets, saveDataset, SavedDataset } from '../../../stores/experimentStore';
 
 type Row = Record<string, unknown>;
@@ -31,16 +33,33 @@ function download(filename: string, content: string, type: string) {
 }
 
 export default function DatasetManagerPage() {
+  const algorithms = useMemo(() => getAllAlgorithms(), []);
+  const [algorithmRoute, setAlgorithmRoute] = useState('/ml/supervised/logistic-regression');
+  const selectedAlgorithm = algorithms.find(item => item.route === algorithmRoute) ?? algorithms[0];
+  const algorithmSamples = useMemo(() =>
+    getAlgorithmSampleDatasets(selectedAlgorithm.route, selectedAlgorithm.category),
+  [selectedAlgorithm]);
   const [saved, setSaved] = useState<SavedDataset[]>([]);
-  const [selectedId, setSelectedId] = useState(allSampleDatasets[0].id);
-  const [name, setName] = useState(allSampleDatasets[0].name);
+  const [selectedId, setSelectedId] = useState(algorithmSamples[0]?.id ?? allSampleDatasets[0].id);
+  const [name, setName] = useState(algorithmSamples[0]?.name ?? allSampleDatasets[0].name);
   const [tags, setTags] = useState('sample, local');
-  const [draft, setDraft] = useState<{ columns: string[]; data: Row[] }>({ columns: allSampleDatasets[0].columns, data: allSampleDatasets[0].data });
+  const [draft, setDraft] = useState<{ columns: string[]; data: Row[] }>({
+    columns: algorithmSamples[0]?.columns ?? allSampleDatasets[0].columns,
+    data: algorithmSamples[0]?.data ?? allSampleDatasets[0].data,
+  });
   const [message, setMessage] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = async () => setSaved(await loadDatasets());
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    let active = true;
+    loadDatasets().then(items => {
+      if (active) setSaved(items);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const profile = useMemo(() => {
     const missing = draft.data.reduce((sum, row) => sum + draft.columns.filter(col => row[col] === null || row[col] === undefined || row[col] === '').length, 0);
@@ -49,9 +68,20 @@ export default function DatasetManagerPage() {
   }, [draft]);
 
   const loadSample = (id: string) => {
-    const dataset = allSampleDatasets.find(item => item.id === id) ?? allSampleDatasets[0];
+    const dataset = algorithmSamples.find(item => item.id === id) ?? allSampleDatasets.find(item => item.id === id) ?? allSampleDatasets[0];
     setSelectedId(id);
     setName(dataset.name);
+    setDraft({ columns: dataset.columns, data: dataset.data });
+  };
+
+  const loadAlgorithm = (route: string) => {
+    const algorithm = algorithms.find(item => item.route === route) ?? algorithms[0];
+    const samples = getAlgorithmSampleDatasets(algorithm.route, algorithm.category);
+    const dataset = samples[0] ?? allSampleDatasets[0];
+    setAlgorithmRoute(route);
+    setSelectedId(dataset.id);
+    setName(dataset.name);
+    setTags(`${algorithm.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}, sample, local`);
     setDraft({ columns: dataset.columns, data: dataset.data });
   };
 
@@ -91,8 +121,11 @@ export default function DatasetManagerPage() {
         <div className="space-y-4">
           <Card title="Upload and Save">
             <div className="space-y-3 text-sm">
+              <select value={algorithmRoute} onChange={event => loadAlgorithm(event.target.value)} className="w-full rounded border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900">
+                {algorithms.map(algorithm => <option key={algorithm.route} value={algorithm.route}>{algorithm.category} - {algorithm.label}</option>)}
+              </select>
               <select value={selectedId} onChange={event => loadSample(event.target.value)} className="w-full rounded border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900">
-                {allSampleDatasets.map(dataset => <option key={dataset.id} value={dataset.id}>{dataset.name}</option>)}
+                {algorithmSamples.map(dataset => <option key={dataset.id} value={dataset.id}>{dataset.name}</option>)}
               </select>
               <input value={name} onChange={event => setName(event.target.value)} className="w-full rounded border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900" />
               <input value={tags} onChange={event => setTags(event.target.value)} className="w-full rounded border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900" placeholder="tags" />

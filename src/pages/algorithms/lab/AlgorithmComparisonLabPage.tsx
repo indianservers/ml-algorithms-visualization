@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { PageHeader } from '../../../components/common/PageHeader';
-import { Card, InfoBox } from '../../../components/common/Card';
+import { Card } from '../../../components/common/Card';
 import { LearningPanel } from '../../../components/ml/LearningPanel';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell as RCell,
@@ -163,7 +163,11 @@ export default function AlgorithmComparisonLabPage() {
   const toggleAlgo = (key: AlgoKey) => {
     setSelectedAlgos(prev => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
       return next;
     });
   };
@@ -191,7 +195,6 @@ export default function AlgorithmComparisonLabPage() {
       if (selectedAlgos.has('LogisticRegression')) {
         setStatus('Training Logistic Regression…');
         const t0 = Date.now();
-        const model = logisticRegression(trainX, trainY.map(v => v === 0 ? 0 : 1), 0.1, 300);
         // Multi-class: train one-vs-rest per class label
         const classes = [...new Set(trainY)].sort();
         let predictions: number[];
@@ -279,7 +282,7 @@ export default function AlgorithmComparisonLabPage() {
       setStatus('Done!');
       setIsRunning(false);
     }, 20);
-  }, [datasetId, selectedAlgos, showBoundaries, dsOption]);
+  }, [selectedAlgos, showBoundaries, dsOption]);
 
   // Find best per metric
   const bestIdx = useMemo(() => {
@@ -442,7 +445,7 @@ export default function AlgorithmComparisonLabPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {(['accuracy', 'precision', 'recall', 'f1'] as const).map((metric, mi) => (
+                      {(['accuracy', 'precision', 'recall', 'f1'] as const).map((metric) => (
                         <tr key={metric} className="border-t border-gray-100 dark:border-gray-700/50">
                           <td className="px-3 py-2 font-medium text-gray-700 dark:text-gray-300 capitalize">
                             {metric === 'f1' ? 'F1 Score' : metric.charAt(0).toUpperCase() + metric.slice(1)}
@@ -502,7 +505,7 @@ export default function AlgorithmComparisonLabPage() {
                   <div className="flex flex-wrap gap-4">
                     {results
                       .filter(r => r.decisionGrid)
-                      .map((r, ri) => (
+                      .map((r) => (
                         <div key={r.name} className="flex-1 min-w-[180px]">
                           <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 text-center">
                             {r.name}

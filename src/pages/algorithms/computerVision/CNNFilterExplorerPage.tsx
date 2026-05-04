@@ -155,12 +155,14 @@ export default function CNNFilterExplorerPage() {
   const outWCalc = Math.floor((W + 2 * pad - kW) / stride) + 1;
 
   // Highlighted patch (which input region is used for a given output cell)
-  const patchRows = highlighted
+  const patchRows = useMemo(() => highlighted
     ? Array.from({ length: kH }, (_, m) => highlighted[0] * stride + m - pad)
-    : [];
-  const patchCols = highlighted
+    : [],
+  [highlighted, stride, pad, kH]);
+  const patchCols = useMemo(() => highlighted
     ? Array.from({ length: kW }, (_, n) => highlighted[1] * stride + n - pad)
-    : [];
+    : [],
+  [highlighted, stride, pad, kW]);
   const isPatch = useCallback(
     (r: number, c: number) =>
       patchRows.some((pr, m) => pr === r && patchCols[m] !== undefined) &&

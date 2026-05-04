@@ -107,7 +107,7 @@ export function lassoRegression(X: number[][], y: number[], alpha: number, maxIt
   const my = mean(y);
   const ys = y.map(v => v - my);
 
-  let w = Array(p).fill(0);
+  const w = Array(p).fill(0);
   for (let iter = 0; iter < maxIter; iter++) {
     const wOld = [...w];
     for (let j = 0; j < p; j++) {

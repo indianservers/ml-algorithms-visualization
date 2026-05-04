@@ -70,7 +70,7 @@ export default function QLearningGridWorldPage() {
       setResult(res);
       setIsTraining(false);
     }, 10);
-  }, [lr, gamma, epsilon, episodes]);
+  }, [grid, lr, gamma, epsilon, episodes]);
 
   const reset = () => {
     setResult(null);

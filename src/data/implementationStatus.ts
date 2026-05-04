@@ -1,6 +1,15 @@
 import { navigationData } from './navigation';
+import type { BadgeType } from './navigation';
 
 export type ImplementationStatus = 'Implemented' | 'Educational' | 'Concept' | 'Scaffold';
+export type AlgorithmNavItem = {
+  label: string;
+  route: string;
+  badge: BadgeType;
+  category: string;
+  categoryIndex: number;
+  itemIndex: number;
+};
 
 const implementedRoutes = new Set([
   '/ml/supervised/simple-linear-regression',
@@ -18,6 +27,7 @@ const implementedRoutes = new Set([
   '/ml/supervised/naive-bayes',
   '/ml/supervised/decision-tree-classification',
   '/ml/supervised/random-forest-classification',
+  '/ml/supervised/svm-classification',
   '/ml/supervised/gradient-boosting-classification',
   '/ml/supervised/adaboost-classification',
   '/ml/clustering/k-means',
@@ -29,23 +39,37 @@ const implementedRoutes = new Set([
   '/ml/dimensionality-reduction/pca',
   '/ml/deep-learning/perceptron',
   '/ml/deep-learning/nn-playground',
+  '/ml/deep-learning/cnn',
+  '/ml/deep-learning/rnn',
+  '/ml/deep-learning/lstm',
+  '/ml/deep-learning/gru',
   '/ml/deep-learning/transformer-attention',
   '/ml/evaluation/confusion-matrix',
   '/ml/evaluation/roc-auc',
   '/ml/evaluation/precision-recall-curve',
   '/ml/evaluation/regression-metrics',
   '/ml/evaluation/train-test-split',
+  '/ml/evaluation/cross-validation',
+  '/ml/evaluation/bias-variance-tradeoff',
   '/ml/preprocessing/missing-values',
   '/ml/preprocessing/scaling-normalization',
   '/ml/preprocessing/categorical-encoding',
   '/ml/preprocessing/outlier-detection',
+  '/ml/preprocessing/feature-selection',
+  '/ml/preprocessing/polynomial-features',
   '/ml/nlp/bag-of-words',
   '/ml/nlp/tf-idf',
+  '/ml/nlp/text-classification',
+  '/ml/nlp/sentiment-analysis',
   '/ml/computer-vision/cnn-filter-explorer',
+  '/ml/computer-vision/edge-detection',
   '/ml/reinforcement-learning/q-learning-grid-world',
+  '/ml/reinforcement-learning/multi-armed-bandit',
   '/ml/optimization/gradient-descent',
   '/ml/time-series/moving-average',
   '/ml/time-series/exponential-smoothing',
+  '/ml/time-series/holt-winters',
+  '/ml/time-series/anomaly-detection',
   '/ml/lab/algorithm-comparison',
   '/ml/lab/dataset-manager',
 ]);
@@ -64,20 +88,8 @@ export function getImplementationStatus(route: string): ImplementationStatus {
   return 'Scaffold';
 }
 
-export function getImplementationProof(route: string): string[] {
-  if (route.includes('linear-regression')) return ['Fits coefficients in TypeScript', 'Computes residuals and regression metrics', 'Renders actual vs predicted charts'];
-  if (route.includes('classification')) return ['Runs browser classification logic', 'Computes accuracy/precision/recall/F1', 'Shows decision output and threshold controls where applicable'];
-  if (route.includes('k-means')) return ['Runs centroid assignment/update iterations', 'Computes inertia/SSE', 'Visualizes clusters and centroids'];
-  if (route.includes('dbscan')) return ['Runs epsilon-neighborhood expansion', 'Labels core/border/noise points', 'Visualizes density clusters'];
-  if (route.includes('pca')) return ['Computes covariance matrix', 'Derives eigenvectors/eigenvalues', 'Shows explained variance and projection'];
-  if (route.includes('tf-idf')) return ['Tokenizes documents locally', 'Computes TF, IDF, and TF-IDF matrix', 'Exports top keyword scores'];
-  if (route.includes('q-learning')) return ['Updates Q-table in browser', 'Runs episode simulation', 'Shows policy arrows and rewards'];
-  if (getImplementationStatus(route) === 'Implemented') return ['Uses local TypeScript computation', 'Has unique controls and visualization', 'Reports real metrics/output'];
-  return ['Not yet complete', 'Clearly labeled until real computation is added', 'Excluded from Implemented quality gate'];
-}
-
 export function implementationSummary() {
-  const items = navigationData.flatMap(category => category.items.map(item => ({ ...item, category: category.category })));
+  const items = getAllAlgorithms();
   const counts: Record<ImplementationStatus, number> = {
     Implemented: 0,
     Educational: 0,
@@ -90,6 +102,38 @@ export function implementationSummary() {
   return { total: items.length, counts, items };
 }
 
+export function getAllAlgorithms(): AlgorithmNavItem[] {
+  return navigationData.flatMap((category, categoryIndex) =>
+    category.items.map((item, itemIndex) => ({
+      ...item,
+      category: category.category,
+      categoryIndex,
+      itemIndex,
+    }))
+  );
+}
+
+export function getAlgorithmByRoute(route: string) {
+  return getAllAlgorithms().find(item => item.route === route);
+}
+
+export function getAdjacentAlgorithms(route: string) {
+  const items = getAllAlgorithms();
+  const index = items.findIndex(item => item.route === route);
+  if (index < 0) return { previous: undefined, next: undefined };
+  return {
+    previous: items[index - 1],
+    next: items[index + 1],
+  };
+}
+
+export function getCategoryProgress(categoryName: string) {
+  const category = navigationData.find(item => item.category === categoryName);
+  const items = category?.items ?? [];
+  const implemented = items.filter(item => getImplementationStatus(item.route) === 'Implemented').length;
+  return { implemented, total: items.length };
+}
+
 export function rememberRoute(route: string) {
   if (typeof localStorage === 'undefined') return;
   const current = JSON.parse(localStorage.getItem('recentAlgorithms') ?? '[]') as string[];
@@ -100,4 +144,32 @@ export function rememberRoute(route: string) {
 export function getRecentRoutes() {
   if (typeof localStorage === 'undefined') return [];
   return JSON.parse(localStorage.getItem('recentAlgorithms') ?? '[]') as string[];
+}
+
+const FAVORITES_KEY = 'favoriteAlgorithms';
+
+export function getFavoriteRoutes() {
+  if (typeof localStorage === 'undefined') return [];
+  return JSON.parse(localStorage.getItem(FAVORITES_KEY) ?? '[]') as string[];
+}
+
+export function isFavoriteRoute(route: string) {
+  return getFavoriteRoutes().includes(route);
+}
+
+export function toggleFavoriteRoute(route: string) {
+  if (typeof localStorage === 'undefined') return [];
+  const current = getFavoriteRoutes();
+  const next = current.includes(route)
+    ? current.filter(item => item !== route)
+    : [route, ...current].slice(0, 12);
+  localStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
+  window.dispatchEvent(new CustomEvent('ml:favorites-changed'));
+  return next;
+}
+
+export function getLearningPath(level: 'Beginner' | 'Intermediate' | 'Advanced') {
+  return getAllAlgorithms()
+    .filter(item => item.badge === level && getImplementationStatus(item.route) !== 'Scaffold')
+    .slice(0, level === 'Beginner' ? 12 : 10);
 }

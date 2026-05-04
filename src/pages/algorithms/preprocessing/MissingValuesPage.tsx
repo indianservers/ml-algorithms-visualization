@@ -28,8 +28,6 @@ const BUILTIN_DATA: Row[] = [
 ];
 
 const NUMERIC_COLS     = ['age', 'income', 'credit_score', 'loan_amount'];
-const CATEGORICAL_COLS = ['job', 'status'];
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function isMissing(v: unknown): boolean {
   return v === null || v === undefined || v === '';
@@ -129,7 +127,7 @@ function parseCSV(text: string): { data: Row[]; cols: string[] } {
 }
 
 // ─── Matrix cell component ────────────────────────────────────────────────────
-const MatrixCell: React.FC<{ value: unknown; col: string }> = ({ value, col: _col }) => {
+const MatrixCell: React.FC<{ value: unknown; col: string }> = ({ value }) => {
   const missing = isMissing(value);
   return (
     <td className={`border border-gray-200 dark:border-gray-600 px-2 py-1 text-xs text-center max-w-[80px] truncate

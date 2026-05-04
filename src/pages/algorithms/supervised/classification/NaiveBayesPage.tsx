@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell, Legend,
+  ResponsiveContainer, Legend,
 } from 'recharts';
 import { Brain } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -32,19 +32,21 @@ export default function NaiveBayesPage() {
   });
 
   // Parse iris data
-  const rawData = irisDataset.data as Record<string, unknown>[];
-  const X = rawData.map(d =>
-    FEATURE_NAMES.map(f => d[f] as number)
-  );
-  const y = rawData.map(d => {
-    const sp = d['species'] as string;
-    return sp === 'setosa' ? 0 : sp === 'versicolor' ? 1 : 2;
-  });
+  const { X, y } = useMemo(() => {
+    const rawData = irisDataset.data as Record<string, unknown>[];
+    return {
+      X: rawData.map(d => FEATURE_NAMES.map(f => d[f] as number)),
+      y: rawData.map(d => {
+        const sp = d['species'] as string;
+        return sp === 'setosa' ? 0 : sp === 'versicolor' ? 1 : 2;
+      }),
+    };
+  }, []);
 
-  const model = useMemo(() => trainGaussianNB(X, y), []);
+  const model = useMemo(() => trainGaussianNB(X, y), [X, y]);
 
   // Accuracy
-  const predictions = useMemo(() => X.map(xi => model.predict(xi)), [model]);
+  const predictions = useMemo(() => X.map(xi => model.predict(xi)), [X, model]);
   const accuracy = useMemo(() => predictions.filter((p, i) => p === y[i]).length / y.length, [predictions, y]);
 
   // Per-class precision, recall

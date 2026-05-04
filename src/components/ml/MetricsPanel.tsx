@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card } from '../common/Card';
-import { Copy, Download } from 'lucide-react';
+import { Copy } from 'lucide-react';
 
 interface Metric {
   label: string;
