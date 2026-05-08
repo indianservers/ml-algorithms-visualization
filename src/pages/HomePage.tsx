@@ -135,7 +135,7 @@ export default function HomePage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
         {[
           { label: 'Total Routes', value: summary.total, tone: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100' },
-          { label: 'Implemented', value: summary.counts.Implemented, tone: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
+          { label: 'Ready', value: summary.counts.Implemented, tone: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
           { label: 'Concept/Educational', value: summary.counts.Concept + summary.counts.Educational, tone: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' },
           { label: 'Incomplete Scaffold', value: summary.counts.Scaffold, tone: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' },
         ].map(item => (
@@ -245,7 +245,7 @@ export default function HomePage() {
               }}
               className={`rounded px-2.5 py-1 text-xs font-semibold ${activeStatus === status ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'}`}
             >
-              {status}
+              {status === 'Implemented' ? 'Ready' : status}
             </button>
           ))}
         </div>
@@ -286,7 +286,9 @@ export default function HomePage() {
             ) : recentItems.map((item) => item && (
               <Link key={item.route} to={item.route} className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-blue-900/20">
                 <span className="truncate">{item.label}</span>
-                <Badge type={getImplementationStatus(item.route)} />
+                {getImplementationStatus(item.route) === 'Implemented'
+                  ? <Badge type={item.badge} />
+                  : <Badge type={getImplementationStatus(item.route)} />}
               </Link>
             ))}
           </div>

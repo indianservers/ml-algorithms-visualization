@@ -15,7 +15,7 @@ const copy: Record<ClassificationMode, { title: string; subtitle: string; warnin
   svm: { title: 'SVM Classification', subtitle: 'Linear/RBF-like margin classifier with C and gamma controls.', warning: 'Browser version is a simplified margin learner, not a full quadratic optimizer.' },
   boosting: { title: 'Gradient Boosting Classification', subtitle: 'Sequential weak learners that reduce classification errors stage by stage.', warning: 'High estimator count can overfit noisy points.' },
   adaboost: { title: 'AdaBoost Classification', subtitle: 'Weighted stumps update sample weights and vote by learner strength.', warning: 'Outliers receive increasing weight and can dominate later learners.' },
-  xgboost: { title: 'XGBoost Concept', subtitle: 'Educational gradient boosting tree stages with gain-like split scoring.', warning: 'Conceptual browser implementation; no Python XGBoost dependency.' },
+  xgboost: { title: 'XGBoost', subtitle: 'Educational gradient boosting tree stages with gain-like split scoring.', warning: 'Browser-sized implementation; no Python XGBoost dependency.' },
 };
 
 function centroidModel(points: { x: number; y: number; label: number }[]) {
@@ -105,7 +105,7 @@ export default function SupervisedClassificationWorkbench({ mode }: { mode: Clas
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4">
-      <PageHeader title={copy[mode].title} subtitle={copy[mode].subtitle} badge={mode === 'xgboost' || mode === 'svm' ? 'Educational' : 'Implemented'} category="Supervised Learning / Classification" icon={<GitBranch size={22} />} />
+      <PageHeader title={copy[mode].title} subtitle={copy[mode].subtitle} badge={mode === 'xgboost' || mode === 'svm' || mode === 'boosting' || mode === 'adaboost' ? 'Advanced' : 'Intermediate'} category="Supervised Learning / Classification" icon={<GitBranch size={22} />} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_1fr]">
         <div className="space-y-4">
           <Card title="Training Controls">

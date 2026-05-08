@@ -3,11 +3,11 @@ import ConceptAlgorithmPage from '../shared/ConceptAlgorithmPage';
 const config = {
   "chartKind": "line",
   "icon": "regression",
-  "title": "SHAPConcept",
-  "subtitle": "Interactive browser-only SHAPConcept module with local datasets, controls, visualizations, metrics, and exports.",
+  "title": "SHAP",
+  "subtitle": "Interactive browser-only SHAP-style feature attribution module with local datasets, controls, visualizations, metrics, and exports.",
   "category": "Explainability",
-  "badge": "Concept",
-  "explanation": "SHAPConcept has a dedicated physical lazy-loaded page. It provides algorithm-specific controls, browser-local dataset input, visualization, metrics, prediction or inspection output, limitations, and export actions without Python, a backend, or cloud ML APIs.",
+  "badge": "Advanced",
+  "explanation": "SHAP has a dedicated physical lazy-loaded page. It provides algorithm-specific controls, browser-local dataset input, visualization, metrics, prediction or inspection output, limitations, and export actions without Python, a backend, or cloud ML APIs.",
   "hyperparameters": [
     [
       "Primary control",
@@ -26,7 +26,7 @@ const config = {
     ]
   ],
   "workflow": [
-    "Prepare data for SHAPConcept",
+    "Prepare data for SHAP",
     "Set algorithm-specific hyperparameters",
     "Run the browser-side computation",
     "Inspect visualization, intermediate values, and metrics",
@@ -51,10 +51,10 @@ const config = {
     ]
   ],
   "predictionDetails": [
-    "Use the controls to inspect SHAPConcept outputs on new examples.",
+    "Use the controls to inspect SHAP outputs on new examples.",
     "Outputs are computed locally in the browser session."
   ],
-  "chartTitle": "SHAPConcept Visualization",
+  "chartTitle": "SHAP Visualization",
   "chartLabels": [
     "Input",
     "Step",
@@ -64,12 +64,12 @@ const config = {
     "Export"
   ],
   "modelOutput": [
-    "SHAPConcept parameters shown here",
+    "SHAP parameters shown here",
     "intermediate values update per run",
     "predictions and reports are exportable"
   ],
   "warnings": [
-    "SHAPConcept is educational and browser-sized by default.",
+    "SHAP is educational and browser-sized by default.",
     "Large datasets may need sampling for smooth visualization.",
     "Check assumptions before interpreting metrics."
   ],
@@ -80,9 +80,9 @@ const config = {
     "Export Markdown report"
   ],
   "learning": {
-    "does": "Runs and visualizes SHAPConcept in the browser.",
-    "when": "Use it when SHAPConcept matches the learning or experimentation goal.",
-    "math": "The page highlights the core formula, matrix, loss, distance, probability, or update rule used by SHAPConcept.",
+    "does": "Runs and visualizes SHAP in the browser.",
+    "when": "Use it when SHAP matches the learning or experimentation goal.",
+    "math": "The page highlights the core formula, matrix, loss, distance, probability, or update rule used by SHAP.",
     "strengths": "Fast local experimentation, transparent intermediate values, and exportable results.",
     "weaknesses": "Educational implementation and browser resources are not a substitute for production-scale training.",
     "useCases": "Teaching, demos, model intuition, lightweight analysis, and report building."

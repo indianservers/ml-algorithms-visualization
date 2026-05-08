@@ -130,7 +130,7 @@ export default function SupervisedRegressionWorkbench({ mode }: { mode: Regressi
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4">
-      <PageHeader title={copy.title} subtitle={copy.subtitle} badge={mode === 'svr' ? 'Educational' : 'Implemented'} category="Supervised Learning / Regression" icon={<TrendingUp size={22} />} />
+      <PageHeader title={copy.title} subtitle={copy.subtitle} badge={mode === 'multiple' || mode === 'polynomial' ? 'Beginner' : mode === 'svr' || mode === 'boosting' ? 'Advanced' : 'Intermediate'} category="Supervised Learning / Regression" icon={<TrendingUp size={22} />} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_1fr]">
         <div className="space-y-4">
           <Card title="Dataset and Hyperparameters">

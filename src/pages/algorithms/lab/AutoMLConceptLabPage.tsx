@@ -3,11 +3,11 @@ import ConceptAlgorithmPage from '../shared/ConceptAlgorithmPage';
 const config = {
   "chartKind": "line",
   "icon": "lab",
-  "title": "Auto MLConcept Lab",
-  "subtitle": "Interactive browser-only Auto MLConcept Lab module with local datasets, controls, visualizations, metrics, and exports.",
+  "title": "AutoML Lab",
+  "subtitle": "Interactive browser-only AutoML lab with local datasets, controls, visualizations, metrics, and exports.",
   "category": "Lab",
-  "badge": "Concept",
-  "explanation": "Auto MLConcept Lab has a dedicated physical lazy-loaded page. It provides algorithm-specific controls, browser-local dataset input, visualization, metrics, prediction or inspection output, limitations, and export actions without Python, a backend, or cloud ML APIs.",
+  "badge": "Advanced",
+  "explanation": "AutoML Lab has a dedicated physical lazy-loaded page. It provides algorithm-specific controls, browser-local dataset input, visualization, metrics, prediction or inspection output, limitations, and export actions without Python, a backend, or cloud ML APIs.",
   "hyperparameters": [
     [
       "Primary control",
@@ -26,7 +26,7 @@ const config = {
     ]
   ],
   "workflow": [
-    "Prepare data for Auto MLConcept Lab",
+    "Prepare data for AutoML Lab",
     "Set algorithm-specific hyperparameters",
     "Run the browser-side computation",
     "Inspect visualization, intermediate values, and metrics",
@@ -51,10 +51,10 @@ const config = {
     ]
   ],
   "predictionDetails": [
-    "Use the controls to inspect Auto MLConcept Lab outputs on new examples.",
+    "Use the controls to inspect AutoML Lab outputs on new examples.",
     "Outputs are computed locally in the browser session."
   ],
-  "chartTitle": "Auto MLConcept Lab Visualization",
+  "chartTitle": "AutoML Lab Visualization",
   "chartLabels": [
     "Input",
     "Step",
@@ -64,12 +64,12 @@ const config = {
     "Export"
   ],
   "modelOutput": [
-    "Auto MLConcept Lab parameters shown here",
+    "AutoML Lab parameters shown here",
     "intermediate values update per run",
     "predictions and reports are exportable"
   ],
   "warnings": [
-    "Auto MLConcept Lab is educational and browser-sized by default.",
+    "AutoML Lab is educational and browser-sized by default.",
     "Large datasets may need sampling for smooth visualization.",
     "Check assumptions before interpreting metrics."
   ],
@@ -80,9 +80,9 @@ const config = {
     "Export Markdown report"
   ],
   "learning": {
-    "does": "Runs and visualizes Auto MLConcept Lab in the browser.",
-    "when": "Use it when Auto MLConcept Lab matches the learning or experimentation goal.",
-    "math": "The page highlights the core formula, matrix, loss, distance, probability, or update rule used by Auto MLConcept Lab.",
+    "does": "Runs and visualizes AutoML Lab in the browser.",
+    "when": "Use it when AutoML Lab matches the learning or experimentation goal.",
+    "math": "The page highlights the core formula, matrix, loss, distance, probability, or update rule used by AutoML Lab.",
     "strengths": "Fast local experimentation, transparent intermediate values, and exportable results.",
     "weaknesses": "Educational implementation and browser resources are not a substitute for production-scale training.",
     "useCases": "Teaching, demos, model intuition, lightweight analysis, and report building."

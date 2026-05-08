@@ -3,11 +3,11 @@ import ConceptAlgorithmPage from '../shared/ConceptAlgorithmPage';
 const config = {
   "chartKind": "line",
   "icon": "regression",
-  "title": "ARIMAConcept",
-  "subtitle": "Interactive browser-only ARIMAConcept module with local datasets, controls, visualizations, metrics, and exports.",
+  "title": "ARIMA",
+  "subtitle": "Interactive browser-only ARIMA forecasting module with local datasets, controls, visualizations, metrics, and exports.",
   "category": "Time Series",
-  "badge": "Concept",
-  "explanation": "ARIMAConcept has a dedicated physical lazy-loaded page. It provides algorithm-specific controls, browser-local dataset input, visualization, metrics, prediction or inspection output, limitations, and export actions without Python, a backend, or cloud ML APIs.",
+  "badge": "Advanced",
+  "explanation": "ARIMA has a dedicated physical lazy-loaded page. It provides algorithm-specific controls, browser-local dataset input, visualization, metrics, prediction or inspection output, limitations, and export actions without Python, a backend, or cloud ML APIs.",
   "hyperparameters": [
     [
       "Primary control",
@@ -26,7 +26,7 @@ const config = {
     ]
   ],
   "workflow": [
-    "Prepare data for ARIMAConcept",
+    "Prepare data for ARIMA",
     "Set algorithm-specific hyperparameters",
     "Run the browser-side computation",
     "Inspect visualization, intermediate values, and metrics",
@@ -51,10 +51,10 @@ const config = {
     ]
   ],
   "predictionDetails": [
-    "Use the controls to inspect ARIMAConcept outputs on new examples.",
+    "Use the controls to inspect ARIMA outputs on new examples.",
     "Outputs are computed locally in the browser session."
   ],
-  "chartTitle": "ARIMAConcept Visualization",
+  "chartTitle": "ARIMA Visualization",
   "chartLabels": [
     "Input",
     "Step",
@@ -64,12 +64,12 @@ const config = {
     "Export"
   ],
   "modelOutput": [
-    "ARIMAConcept parameters shown here",
+    "ARIMA parameters shown here",
     "intermediate values update per run",
     "predictions and reports are exportable"
   ],
   "warnings": [
-    "ARIMAConcept is educational and browser-sized by default.",
+    "ARIMA is educational and browser-sized by default.",
     "Large datasets may need sampling for smooth visualization.",
     "Check assumptions before interpreting metrics."
   ],
@@ -80,9 +80,9 @@ const config = {
     "Export Markdown report"
   ],
   "learning": {
-    "does": "Runs and visualizes ARIMAConcept in the browser.",
-    "when": "Use it when ARIMAConcept matches the learning or experimentation goal.",
-    "math": "The page highlights the core formula, matrix, loss, distance, probability, or update rule used by ARIMAConcept.",
+    "does": "Runs and visualizes ARIMA in the browser.",
+    "when": "Use it when ARIMA matches the learning or experimentation goal.",
+    "math": "The page highlights the core formula, matrix, loss, distance, probability, or update rule used by ARIMA.",
     "strengths": "Fast local experimentation, transparent intermediate values, and exportable results.",
     "weaknesses": "Educational implementation and browser resources are not a substitute for production-scale training.",
     "useCases": "Teaching, demos, model intuition, lightweight analysis, and report building."

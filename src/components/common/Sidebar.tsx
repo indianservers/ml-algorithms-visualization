@@ -42,6 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const [badgeFilter, setBadgeFilter] = useState('All');
   const [favoriteRoutes, setFavoriteRoutes] = useState<string[]>(() => getFavoriteRoutes());
   const [recentRoutes, setRecentRoutes] = useState<string[]>(() => getRecentRoutes());
+  const [recentOpen, setRecentOpen] = useState(() => localStorage.getItem('ml-suite-recent-open') !== 'false');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(() => {
     const saved = localStorage.getItem('ml-suite-expanded-categories');
     if (saved) return new Set(JSON.parse(saved) as string[]);
@@ -87,6 +88,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     localStorage.setItem('ml-suite-expanded-categories', JSON.stringify([...expandedCategories]));
   }, [expandedCategories]);
 
+  React.useEffect(() => {
+    localStorage.setItem('ml-suite-recent-open', String(recentOpen));
+  }, [recentOpen]);
+
   const filteredNav = useMemo(() => {
     const statusMatch = (route: string) => statusFilter === 'All' || getImplementationStatus(route) === statusFilter;
     const badgeMatch = (badge: string) => badgeFilter === 'All' || badge === badgeFilter;
@@ -114,7 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
 
   if (collapsed) {
     return (
-      <div className="w-14 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center py-4 gap-4 shrink-0">
+      <div className="h-full min-h-0 w-14 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center overflow-y-auto py-4 gap-4 shrink-0">
         <button onClick={onToggle} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
           <ChevronRight size={18} />
         </button>
@@ -138,7 +143,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   }
 
   return (
-    <div className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 overflow-hidden">
+    <div className="h-full min-h-0 w-72 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
         <NavLink to="/" className="flex items-center gap-2">
@@ -172,7 +177,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         <div className="grid grid-cols-2 gap-2 mt-2">
           <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)} className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
             <option>All</option>
-            <option>Implemented</option>
             <option>Educational</option>
             <option>Concept</option>
             <option>Scaffold</option>
@@ -182,7 +186,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
             <option>Beginner</option>
             <option>Intermediate</option>
             <option>Advanced</option>
-            <option>Concept</option>
             <option>Browser Trainable</option>
             <option>Browser Inference</option>
           </select>
@@ -202,7 +205,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto scrollbar-thin py-2">
+      <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-thin py-2">
         <NavLink
           to="/"
           className={({ isActive }) =>
@@ -227,11 +230,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
 
         {!filtersActive && recentItems.length > 0 && (
           <div className="mx-2 mt-2 rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-800/60">
-            <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">Recent</p>
-            {recentItems.map(item => item && (
-              <NavLink key={item.route} to={item.route} className="flex items-center justify-between rounded px-2 py-1.5 text-xs text-gray-700 hover:bg-white dark:text-gray-300 dark:hover:bg-gray-700">
-                <span className="truncate">{item.label}</span>
-                <Badge type={getImplementationStatus(item.route)} size="sm" />
+            <button
+              onClick={() => setRecentOpen(open => !open)}
+              className="mb-1 flex w-full items-center justify-between rounded px-1 py-1 text-[10px] font-bold uppercase tracking-wide text-gray-500 hover:bg-white dark:text-gray-400 dark:hover:bg-gray-700"
+            >
+              <span>Recent</span>
+              {recentOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            </button>
+            {recentOpen && recentItems.map(item => item && (
+              <NavLink key={item.route} to={item.route} className="block rounded px-2 py-1.5 text-xs text-gray-700 hover:bg-white dark:text-gray-300 dark:hover:bg-gray-700">
+                <span className="block leading-snug">{item.label}</span>
+                <span className="mt-1 flex flex-wrap gap-1">
+                  {getImplementationStatus(item.route) !== 'Implemented' && <Badge type={getImplementationStatus(item.route)} size="sm" />}
+                  <Badge type={item.badge as BadgeType} size="sm" />
+                </span>
               </NavLink>
             ))}
           </div>
@@ -270,12 +282,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
                       key={item.route}
                       to={item.route}
                       className={({ isActive }) =>
-                        `flex items-center justify-between mx-2 px-3 py-1.5 rounded-md text-xs transition-colors ${isActive ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' : status === 'Scaffold' ? 'text-red-700 bg-red-50/70 hover:bg-red-100 dark:text-red-300 dark:bg-red-900/10 dark:hover:bg-red-900/20' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`
+                        `block mx-2 px-3 py-2 rounded-md text-xs transition-colors ${isActive ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' : status === 'Scaffold' ? 'text-red-700 bg-red-50/70 hover:bg-red-100 dark:text-red-300 dark:bg-red-900/10 dark:hover:bg-red-900/20' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`
                       }
                     >
-                      <span className="truncate">{item.label}</span>
-                      <span className="flex items-center gap-1">
-                        <Badge type={status} size="sm" />
+                      <span className="block whitespace-normal break-words leading-snug">{item.label}</span>
+                      <span className="mt-1.5 flex flex-wrap items-center gap-1">
+                        {status !== 'Implemented' && <Badge type={status} size="sm" />}
                         <Badge type={item.badge as BadgeType} size="sm" />
                       </span>
                     </NavLink>

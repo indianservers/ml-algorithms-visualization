@@ -125,7 +125,7 @@ export default function ClusteringWorkbench({ mode }: { mode: ClusterMode }) {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4">
-      <PageHeader title={title} subtitle={subtitle} badge={mode === 'gmm' || mode === 'optics' ? 'Educational' : 'Implemented'} category="Clustering" icon={<Network size={22} />} />
+      <PageHeader title={title} subtitle={subtitle} badge={mode === 'gmm' || mode === 'optics' || mode === 'meanshift' || mode === 'spectral' ? 'Advanced' : 'Intermediate'} category="Clustering" icon={<Network size={22} />} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_1fr]">
         <div className="space-y-4">
           <Card title="Controls">

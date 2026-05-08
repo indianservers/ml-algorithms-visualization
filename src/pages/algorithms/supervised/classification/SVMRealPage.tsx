@@ -76,7 +76,7 @@ export default function SVMRealPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4">
-      <PageHeader title="SVM Classification" subtitle="Real browser-side hinge-loss support vector classifier with linear and RBF feature maps." badge="Implemented" category="Supervised Learning / Classification" icon={<GitBranch size={22} />} />
+      <PageHeader title="SVM Classification" subtitle="Real browser-side hinge-loss support vector classifier with linear and RBF feature maps." badge="Advanced" category="Supervised Learning / Classification" icon={<GitBranch size={22} />} />
       <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
         <div className="space-y-4">
           <Card title="SVM Controls">

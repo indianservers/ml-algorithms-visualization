@@ -50,12 +50,12 @@ export default function ImplementationMatrixPage() {
   );
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4">
-      <PageHeader title="Implementation Matrix" subtitle="Quality gate view for every algorithm route and its current implementation status." badge="Implemented" category="Project Quality" icon={<ClipboardCheck size={22} />} />
+      <PageHeader title="Implementation Matrix" subtitle="Quality gate view for every algorithm route and its current implementation status." badge="Advanced" category="Project Quality" icon={<ClipboardCheck size={22} />} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {Object.entries(summary.counts).map(([status, count]) => (
           <Card key={status}>
             <p className="font-mono text-2xl font-bold">{count}</p>
-            <p className="text-xs text-gray-500">{status}</p>
+            <p className="text-xs text-gray-500">{status === 'Implemented' ? 'Ready' : status}</p>
           </Card>
         ))}
       </div>
@@ -76,7 +76,13 @@ export default function ImplementationMatrixPage() {
                 <tr key={item.route} className={getImplementationStatus(item.route) === 'Scaffold' ? 'bg-red-50/60 dark:bg-red-900/10' : ''}>
                   <td className="border border-gray-200 p-2 dark:border-gray-700">{item.category}</td>
                   <td className="border border-gray-200 p-2 font-semibold dark:border-gray-700">{item.label}</td>
-                  <td className="border border-gray-200 p-2 dark:border-gray-700"><Badge type={getImplementationStatus(item.route)} /></td>
+                  <td className="border border-gray-200 p-2 dark:border-gray-700">
+                    {getImplementationStatus(item.route) === 'Implemented' ? (
+                      <span className="text-xs font-semibold text-gray-500">Ready</span>
+                    ) : (
+                      <Badge type={getImplementationStatus(item.route)} />
+                    )}
+                  </td>
                   <td className="border border-gray-200 p-2 dark:border-gray-700"><Badge type={item.badge} /></td>
                   <td className="border border-gray-200 p-2 font-mono dark:border-gray-700"><Link className="text-blue-600 hover:underline dark:text-blue-300" to={item.route}>{item.route}</Link></td>
                 </tr>

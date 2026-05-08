@@ -122,7 +122,6 @@ export const RouteSearchModal: React.FC<RouteSearchModalProps> = ({ open, onClos
             className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
           >
             <option>All</option>
-            <option>Implemented</option>
             <option>Educational</option>
             <option>Concept</option>
             <option>Scaffold</option>
@@ -139,7 +138,6 @@ export const RouteSearchModal: React.FC<RouteSearchModalProps> = ({ open, onClos
             <option>Beginner</option>
             <option>Intermediate</option>
             <option>Advanced</option>
-            <option>Concept</option>
             <option>Browser Trainable</option>
             <option>Browser Inference</option>
           </select>
@@ -160,7 +158,7 @@ export const RouteSearchModal: React.FC<RouteSearchModalProps> = ({ open, onClos
                 <span className="block truncate font-mono text-[11px] text-gray-500 dark:text-gray-400">{item.category} / {item.route}</span>
               </span>
               <span className="flex shrink-0 items-center gap-1">
-                <Badge type={item.status} />
+                {item.status !== 'Implemented' && <Badge type={item.status} />}
                 <Badge type={item.badge} />
               </span>
             </Link>

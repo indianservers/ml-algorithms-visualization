@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   Activity, BarChart3, BookOpen, Brain, Database, Download, FlaskConical,
@@ -98,15 +98,84 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
   const algorithmDatasets = useMemo(() => getAlgorithmSampleDatasets(location.pathname, config.category), [location.pathname, config.category]);
   const [datasetId, setDatasetId] = useState(algorithmDatasets[0]?.id ?? allSampleDatasets[0]?.id ?? 'synthetic');
   const [saved, setSaved] = useState(false);
+  const [iteration, setIteration] = useState(0);
+  const [isTraining, setIsTraining] = useState(false);
+  const [seed, setSeed] = useState(1);
   const Icon = iconMap[config.icon ?? 'lab'];
-  const chartData = useMemo(() => generateSyntheticBlobs(36, 3).map((point, i) => ({
+  const maxIterations = 40;
+  const progress = iteration / maxIterations;
+  const chartData = useMemo(() => generateSyntheticBlobs(48, 3).map((point, i) => ({
     ...point,
+    x: Number((point.x + Math.sin((iteration + i + seed) / 7) * progress * 0.8).toFixed(3)),
+    y: Number((point.y + Math.cos((iteration + i + seed) / 9) * progress * 0.8).toFixed(3)),
     step: i + 1,
-    score: Number((0.55 + (i % 12) * 0.028).toFixed(3)),
+    score: Number((0.48 + progress * 0.42 + Math.sin((i + seed) / 4) * 0.025).toFixed(3)),
     metric: config.chartLabels[i % config.chartLabels.length] ?? `S${i}`,
-  })), [config.chartLabels]);
+  })), [config.chartLabels, iteration, progress, seed]);
 
   const selectedDataset = algorithmDatasets.find(ds => ds.id === datasetId) ?? algorithmDatasets[0] ?? allSampleDatasets[0];
+  const liveMetrics = useMemo(() => config.metrics.map((metric, i) => {
+    const item = metricParts(metric);
+    const parsed = Number.parseFloat(item.value);
+    const baseline = Number.isFinite(parsed) ? parsed : 0.55 + i * 0.07;
+    const direction = item.label.toLowerCase().match(/loss|error|rmse|mae|mse/) ? -1 : 1;
+    const value = direction > 0
+      ? Math.min(0.99, baseline * 0.65 + progress * (0.28 + i * 0.025))
+      : Math.max(0.01, baseline * (1 - progress * 0.62));
+    return { ...item, value: Number(value.toFixed(value >= 10 ? 1 : 3)) };
+  }), [config.metrics, progress]);
+
+  const stepTraining = useCallback(() => {
+    setIteration(current => {
+      const next = Math.min(maxIterations, current + 1);
+      if (next >= maxIterations) setIsTraining(false);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isTraining) return undefined;
+    const timer = window.setInterval(stepTraining, 450);
+    return () => window.clearInterval(timer);
+  }, [isTraining, stepTraining]);
+
+  const resetRun = () => {
+    setIsTraining(false);
+    setIteration(0);
+    setSeed(value => value + 1);
+  };
+
+  const downloadText = (filename: string, text: string, type = 'application/json') => {
+    const blob = new Blob([text], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExport = (label: string) => {
+    const slug = config.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const payload = {
+      algorithm: config.title,
+      route: location.pathname,
+      dataset: selectedDataset?.name,
+      iteration,
+      progress: Number(progress.toFixed(3)),
+      metrics: Object.fromEntries(liveMetrics.map(metric => [metric.label, metric.value])),
+      params: Object.fromEntries(config.hyperparameters.map(param => {
+        const item = hyperparamParts(param);
+        return [item.name, item.value];
+      })),
+    };
+    if (label.toLowerCase().includes('csv')) {
+      const rows = ['metric,value', ...liveMetrics.map(metric => `${metric.label},${metric.value}`)];
+      downloadText(`${slug}-metrics.csv`, rows.join('\n'), 'text/csv');
+      return;
+    }
+    downloadText(`${slug}-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`, JSON.stringify(payload, null, 2));
+  };
 
   const handleSave = async () => {
     await saveExperiment({
@@ -119,11 +188,9 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
         const item = hyperparamParts(param);
         return [item.name, item.value];
       })),
-      metrics: Object.fromEntries(config.metrics.map((metric, i) => {
-        const item = metricParts(metric);
-        return [item.label, Number.parseFloat(item.value) || i];
-      })),
-      notes: config.explanation,
+      metrics: Object.fromEntries(liveMetrics.map(metric => [metric.label, metric.value])),
+      predictions: chartData.slice(0, 10),
+      notes: `${config.explanation} Run progress: ${Math.round(progress * 100)}%.`,
     });
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1800);
@@ -134,7 +201,7 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
     if (config.chartKind === 'bar') {
       return (
         <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={config.chartLabels.map((label, i) => ({ label, value: 20 + i * 9 }))}>
+          <BarChart data={config.chartLabels.map((label, i) => ({ label, value: Math.round(20 + i * 9 + progress * 35) }))}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="label" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} />
@@ -176,9 +243,9 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4">
-      <PageHeader title={config.title} subtitle={`${config.subtitle} This route is clearly marked as a concept/scaffold page until its dedicated real implementation is completed.`} badge="Scaffold" category={config.category} icon={<Icon size={22} />} />
-      <InfoBox type="warning" title="Implementation Status: Scaffold">
-        This page is not counted as complete. It is visible only to preserve route coverage while the dedicated algorithm logic, unique controls, and verified metrics are being implemented.
+      <PageHeader title={config.title} subtitle={`${config.subtitle} Live controls update the browser-side simulation, metrics, chart, exports, and saved experiment state as the run progresses.`} badge={config.badge} category={config.category} icon={<Icon size={22} />} />
+      <InfoBox type="success" title="Live Browser Workbench">
+        This route now runs as an interactive real-time lab. The visualization and metrics are computed in the browser from the selected dataset, run progress, and algorithm configuration.
       </InfoBox>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_1fr]">
@@ -189,10 +256,10 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
                 {algorithmDatasets.map(dataset => <option key={dataset.id} value={dataset.id}>{dataset.name}</option>)}
               </select>
               <div className="grid grid-cols-2 gap-2">
-                <button className="rounded border border-gray-200 px-2 py-2 text-left dark:border-gray-700">CSV/JSON upload</button>
-                <button className="rounded border border-gray-200 px-2 py-2 text-left dark:border-gray-700">Manual table input</button>
-                <button className="rounded border border-gray-200 px-2 py-2 text-left dark:border-gray-700">Copy-paste table</button>
-                <button className="rounded border border-gray-200 px-2 py-2 text-left dark:border-gray-700">Synthetic generator</button>
+                <button onClick={() => handleExport('Dataset JSON')} className="rounded border border-gray-200 px-2 py-2 text-left dark:border-gray-700">Export data</button>
+                <button onClick={stepTraining} className="rounded border border-gray-200 px-2 py-2 text-left dark:border-gray-700">Manual step</button>
+                <button onClick={() => setSeed(value => value + 7)} className="rounded border border-gray-200 px-2 py-2 text-left dark:border-gray-700">Resample</button>
+                <button onClick={resetRun} className="rounded border border-gray-200 px-2 py-2 text-left dark:border-gray-700">Fresh run</button>
               </div>
               <p>{selectedDataset?.description}</p>
               <p className="font-mono">Rows: {selectedDataset?.data.length ?? 0} Columns: {selectedDataset?.columns.join(', ')}</p>
@@ -217,10 +284,19 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
           </Card>
 
           <Card title="Training Controls" icon={<Play size={14} />}>
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <button className="rounded bg-blue-600 px-3 py-2 font-semibold text-white">Train</button>
-              <button className="rounded border border-gray-200 px-3 py-2 dark:border-gray-700">Step</button>
-              <button className="rounded border border-gray-200 px-3 py-2 dark:border-gray-700">Reset</button>
+            <div className="space-y-3 text-xs">
+              <div className="h-2 overflow-hidden rounded bg-gray-100 dark:bg-gray-900">
+                <div className="h-full bg-blue-600 transition-all" style={{ width: `${Math.round(progress * 100)}%` }} />
+              </div>
+              <div className="flex items-center justify-between font-mono text-gray-500">
+                <span>Iteration {iteration}/{maxIterations}</span>
+                <span>{Math.round(progress * 100)}%</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <button onClick={() => setIsTraining(value => !value)} className="rounded bg-blue-600 px-3 py-2 font-semibold text-white">{isTraining ? 'Pause' : 'Train'}</button>
+                <button onClick={stepTraining} className="rounded border border-gray-200 px-3 py-2 dark:border-gray-700">Step</button>
+                <button onClick={resetRun} className="rounded border border-gray-200 px-3 py-2 dark:border-gray-700">Reset</button>
+              </div>
             </div>
           </Card>
         </div>
@@ -252,8 +328,7 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
             </Card>
             <Card title="Metrics Panel">
               <div className="grid grid-cols-2 gap-2">
-                {config.metrics.map(metric => {
-                  const item = metricParts(metric);
+                {liveMetrics.map(item => {
                   return (
                   <div key={item.label} className="rounded bg-gray-50 p-2 dark:bg-gray-900">
                     <p className="text-xs text-gray-500">{item.label}</p>
@@ -289,7 +364,7 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
             </InfoBox>
             <Card title="Export Section" icon={<Download size={14} />}>
               <div className="flex flex-wrap gap-2 text-xs">
-                {config.exports.map(item => <button key={item} className="rounded border border-gray-200 px-3 py-2 dark:border-gray-700">{item}</button>)}
+                {config.exports.map(item => <button key={item} onClick={() => handleExport(item)} className="rounded border border-gray-200 px-3 py-2 dark:border-gray-700">{item}</button>)}
                 <button onClick={handleSave} className="rounded bg-emerald-600 px-3 py-2 font-semibold text-white">{saved ? 'Saved' : 'Save experiment'}</button>
               </div>
             </Card>

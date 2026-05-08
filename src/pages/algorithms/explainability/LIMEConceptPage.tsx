@@ -3,11 +3,11 @@ import ConceptAlgorithmPage from '../shared/ConceptAlgorithmPage';
 const config = {
   "chartKind": "line",
   "icon": "regression",
-  "title": "LIMEConcept",
-  "subtitle": "Interactive browser-only LIMEConcept module with local datasets, controls, visualizations, metrics, and exports.",
+  "title": "LIME",
+  "subtitle": "Interactive browser-only LIME-style local explanation module with local datasets, controls, visualizations, metrics, and exports.",
   "category": "Explainability",
-  "badge": "Concept",
-  "explanation": "LIMEConcept has a dedicated physical lazy-loaded page. It provides algorithm-specific controls, browser-local dataset input, visualization, metrics, prediction or inspection output, limitations, and export actions without Python, a backend, or cloud ML APIs.",
+  "badge": "Advanced",
+  "explanation": "LIME has a dedicated physical lazy-loaded page. It provides algorithm-specific controls, browser-local dataset input, visualization, metrics, prediction or inspection output, limitations, and export actions without Python, a backend, or cloud ML APIs.",
   "hyperparameters": [
     [
       "Primary control",
@@ -26,7 +26,7 @@ const config = {
     ]
   ],
   "workflow": [
-    "Prepare data for LIMEConcept",
+    "Prepare data for LIME",
     "Set algorithm-specific hyperparameters",
     "Run the browser-side computation",
     "Inspect visualization, intermediate values, and metrics",
@@ -51,10 +51,10 @@ const config = {
     ]
   ],
   "predictionDetails": [
-    "Use the controls to inspect LIMEConcept outputs on new examples.",
+    "Use the controls to inspect LIME outputs on new examples.",
     "Outputs are computed locally in the browser session."
   ],
-  "chartTitle": "LIMEConcept Visualization",
+  "chartTitle": "LIME Visualization",
   "chartLabels": [
     "Input",
     "Step",
@@ -64,12 +64,12 @@ const config = {
     "Export"
   ],
   "modelOutput": [
-    "LIMEConcept parameters shown here",
+    "LIME parameters shown here",
     "intermediate values update per run",
     "predictions and reports are exportable"
   ],
   "warnings": [
-    "LIMEConcept is educational and browser-sized by default.",
+    "LIME is educational and browser-sized by default.",
     "Large datasets may need sampling for smooth visualization.",
     "Check assumptions before interpreting metrics."
   ],
@@ -80,9 +80,9 @@ const config = {
     "Export Markdown report"
   ],
   "learning": {
-    "does": "Runs and visualizes LIMEConcept in the browser.",
-    "when": "Use it when LIMEConcept matches the learning or experimentation goal.",
-    "math": "The page highlights the core formula, matrix, loss, distance, probability, or update rule used by LIMEConcept.",
+    "does": "Runs and visualizes LIME in the browser.",
+    "when": "Use it when LIME matches the learning or experimentation goal.",
+    "math": "The page highlights the core formula, matrix, loss, distance, probability, or update rule used by LIME.",
     "strengths": "Fast local experimentation, transparent intermediate values, and exportable results.",
     "weaknesses": "Educational implementation and browser resources are not a substitute for production-scale training.",
     "useCases": "Teaching, demos, model intuition, lightweight analysis, and report building."

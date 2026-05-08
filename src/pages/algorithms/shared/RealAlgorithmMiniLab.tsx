@@ -265,7 +265,7 @@ export default function RealAlgorithmMiniLab({ mode }: { mode: Mode }) {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4">
-      <PageHeader title={meta.title} subtitle={meta.subtitle} badge="Implemented" category={meta.category} icon={meta.icon} />
+      <PageHeader title={meta.title} subtitle={meta.subtitle} badge="Intermediate" category={meta.category} icon={meta.icon} />
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <div className="space-y-4">
           <Card title="Controls">

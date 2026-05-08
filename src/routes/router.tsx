@@ -92,9 +92,13 @@ const TextClassificationPage = lazy(() => import('../pages/algorithms/nlp/TextCl
 const WordEmbeddingConceptPage = lazy(() => import('../pages/algorithms/nlp/WordEmbeddingConceptPage'));
 const SentimentAnalysisPage = lazy(() => import('../pages/algorithms/nlp/SentimentAnalysisPage'));
 const NaiveBayesSpamClassifierPage = lazy(() => import('../pages/algorithms/nlp/NaiveBayesSpamClassifierPage'));
+const AudioClassificationPage = lazy(() => import('../pages/algorithms/nlp/AudioClassificationPage'));
 
 // Computer Vision
 const ImageClassificationPage = lazy(() => import('../pages/algorithms/computerVision/ImageClassificationPage'));
+const HandGestureRecognitionPage = lazy(() => import('../pages/algorithms/computerVision/HandGestureRecognitionPage'));
+const PoseDetectionPage = lazy(() => import('../pages/algorithms/computerVision/PoseDetectionPage'));
+const PersonSegmentationPage = lazy(() => import('../pages/algorithms/computerVision/PersonSegmentationPage'));
 const CNNFilterExplorerPage = lazy(() => import('../pages/algorithms/computerVision/CNNFilterExplorerPage'));
 const KMeansImageSegmentationPage = lazy(() => import('../pages/algorithms/computerVision/KMeansImageSegmentationPage'));
 const EdgeDetectionPage = lazy(() => import('../pages/algorithms/computerVision/EdgeDetectionPage'));
@@ -232,8 +236,12 @@ export const router = createBrowserRouter([
       { path: 'ml/nlp/word-embedding-concept', element: <WordEmbeddingConceptPage /> },
       { path: 'ml/nlp/sentiment-analysis', element: <SentimentAnalysisPage /> },
       { path: 'ml/nlp/naive-bayes-spam', element: <NaiveBayesSpamClassifierPage /> },
+      { path: 'ml/nlp/audio-classification', element: <AudioClassificationPage /> },
       // Computer Vision
       { path: 'ml/computer-vision/image-classification', element: <ImageClassificationPage /> },
+      { path: 'ml/computer-vision/hand-gesture-recognition', element: <HandGestureRecognitionPage /> },
+      { path: 'ml/computer-vision/pose-detection', element: <PoseDetectionPage /> },
+      { path: 'ml/computer-vision/person-segmentation', element: <PersonSegmentationPage /> },
       { path: 'ml/computer-vision/cnn-filter-explorer', element: <CNNFilterExplorerPage /> },
       { path: 'ml/computer-vision/kmeans-image-segmentation', element: <KMeansImageSegmentationPage /> },
       { path: 'ml/computer-vision/edge-detection', element: <EdgeDetectionPage /> },

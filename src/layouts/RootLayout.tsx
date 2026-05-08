@@ -97,7 +97,7 @@ export const RootLayout: React.FC = () => {
   const isFavorite = currentItem ? isFavoriteRoute(currentItem.route) : false;
   const algorithmStatus = currentItem ? getImplementationStatus(currentItem.route) : undefined;
   const statusTone = algorithmStatus === 'Implemented'
-    ? 'border-green-200 bg-green-50 text-green-900 dark:border-green-800 dark:bg-green-950/40 dark:text-green-100'
+    ? 'border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200'
     : algorithmStatus === 'Scaffold'
       ? 'border-red-200 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950/40 dark:text-red-100'
       : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100';
@@ -116,7 +116,7 @@ export const RootLayout: React.FC = () => {
 
   return (
     <div className={`flex h-screen w-full overflow-hidden bg-gray-50 dark:bg-gray-950 ${theme === 'dark' ? 'dark' : ''}`}>
-      <div className="hidden md:block">
+      <div className="hidden h-full min-h-0 md:block">
         <Sidebar collapsed={collapsed} onToggle={toggle} />
       </div>
       {mobileSidebarOpen && (
@@ -162,14 +162,16 @@ export const RootLayout: React.FC = () => {
           <div className={`shrink-0 border-b px-4 py-2 ${statusTone}`} key={favoriteTick}>
             <div className="flex flex-wrap items-center gap-2">
               {algorithmStatus === 'Implemented' ? <CheckCircle2 size={15} /> : algorithmStatus === 'Scaffold' ? <AlertTriangle size={15} /> : <Info size={15} />}
-              <Link to="/implementation-matrix" className="text-xs font-bold uppercase tracking-wide hover:underline">Implementation Status</Link>
-              <Badge type={algorithmStatus} />
+              <Link to="/implementation-matrix" className="text-xs font-bold uppercase tracking-wide hover:underline">
+                {algorithmStatus === 'Implemented' ? 'Algorithm Tools' : 'Implementation Status'}
+              </Link>
+              {algorithmStatus !== 'Implemented' && <Badge type={algorithmStatus} />}
               <span className="text-xs font-semibold">{currentItem.category}</span>
               <span className="hidden text-xs text-gray-500 dark:text-gray-400 sm:inline">/</span>
               <span className="text-xs font-semibold">{currentItem.label}</span>
               <span className="ml-auto hidden text-xs md:inline">
                 {algorithmStatus === 'Implemented'
-                  ? 'Quality gate: real computation, unique controls, chart, metrics, export/save path.'
+                  ? 'Real computation, controls, chart, metrics, and export/save path.'
                   : 'This route is clearly labeled until real computation and checklist coverage are complete.'}
               </span>
               <button

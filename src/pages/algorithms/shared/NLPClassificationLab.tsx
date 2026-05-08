@@ -170,7 +170,7 @@ export default function NLPClassificationLab({ mode }: { mode: Mode }) {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4">
-      <PageHeader title={meta.title} subtitle={meta.subtitle} badge="Implemented" category="NLP" icon={<MessageSquare size={22} />} />
+      <PageHeader title={meta.title} subtitle={meta.subtitle} badge="Intermediate" category="NLP" icon={<MessageSquare size={22} />} />
       <div className="grid gap-6 lg:grid-cols-[350px_1fr]">
         <div className="space-y-4">
           <Card title="Dataset">
