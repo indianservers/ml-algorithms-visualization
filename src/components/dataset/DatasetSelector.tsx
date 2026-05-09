@@ -42,7 +42,7 @@ export const DatasetSelector: React.FC<DatasetSelectorProps> = ({
                 <button
                   key={opt.id}
                   onClick={() => onSampleSelect(opt.id)}
-                  className={`px-3 py-2 text-xs rounded-lg border text-left transition-colors ${
+                  className={`min-h-10 px-3 py-2 text-xs rounded-lg border text-left transition-colors ${
                     selectedSample === opt.id
                       ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-600 dark:text-blue-300'
                       : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-blue-300'
@@ -58,7 +58,7 @@ export const DatasetSelector: React.FC<DatasetSelectorProps> = ({
               <input ref={fileRef} type="file" accept=".csv,.json" onChange={handleFile} className="hidden" />
               <div
                 onClick={() => fileRef.current?.click()}
-                className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 cursor-pointer hover:border-blue-400 transition-colors"
+                className="min-h-40 cursor-pointer rounded-lg border-2 border-dashed border-gray-300 p-6 transition-colors hover:border-blue-400 dark:border-gray-600 sm:p-8"
               >
                 <Upload size={24} className="mx-auto mb-2 text-gray-400" />
                 <p className="text-sm text-gray-600 dark:text-gray-400">Click to upload CSV or JSON file</p>
@@ -72,7 +72,7 @@ export const DatasetSelector: React.FC<DatasetSelectorProps> = ({
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Generate a synthetic dataset for this algorithm.</p>
               <button
                 onClick={onGenerate}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg"
+                className="min-h-10 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
               >
                 Generate Dataset
               </button>

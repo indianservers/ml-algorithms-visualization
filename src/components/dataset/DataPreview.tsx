@@ -24,15 +24,15 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ columns, data, maxRows
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
+      <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Table size={13} className="text-gray-400" />
           <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{title}</span>
           <span className="text-xs text-gray-400">({data.length} rows × {columns.length} cols)</span>
         </div>
         <button
           onClick={() => exportCSV(columns, data)}
-          className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+          className="flex min-h-10 items-center gap-1 self-start rounded px-2 py-2 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 sm:self-auto"
         >
           <Download size={11} /> CSV
         </button>
@@ -64,7 +64,7 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ columns, data, maxRows
         </table>
       </div>
       {data.length > maxRows && (
-        <button onClick={() => setShowAll(s => !s)} className="mt-2 text-xs text-blue-500 hover:text-blue-700">
+        <button onClick={() => setShowAll(s => !s)} className="mt-2 min-h-10 rounded px-2 py-2 text-xs text-blue-500 hover:text-blue-700">
           {showAll ? `Show less` : `Show all ${data.length} rows`}
         </button>
       )}

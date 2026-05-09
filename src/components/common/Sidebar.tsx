@@ -32,9 +32,11 @@ const iconMap: Record<string, React.ReactNode> = {
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  onNavigate?: () => void;
+  drawer?: boolean;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigate, drawer = false }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -120,10 +122,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   if (collapsed) {
     return (
       <div className="h-full min-h-0 w-14 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center overflow-y-auto py-4 gap-4 shrink-0">
-        <button onClick={onToggle} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
+        <button onClick={onToggle} className="min-h-10 min-w-10 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500" aria-label="Expand navigation">
           <ChevronRight size={18} />
         </button>
-        <NavLink to="/" className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"><Home size={18} /></NavLink>
+        <NavLink to="/" onClick={onNavigate} className="grid min-h-10 min-w-10 place-items-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"><Home size={18} /></NavLink>
         {navigationData.map(cat => (
           <button
             key={cat.category}
@@ -132,7 +134,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
               setExpandedCategories(prev => new Set(prev).add(cat.category));
               navigate(cat.items[0]?.route ?? '/');
             }}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded"
+            className="grid min-h-10 min-w-10 place-items-center rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             title={`${cat.category} (${getCategoryProgress(cat.category).implemented}/${getCategoryProgress(cat.category).total})`}
           >
             {iconMap[cat.icon] ?? <Layers size={15} />}
@@ -143,17 +145,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   }
 
   return (
-    <div className="h-full min-h-0 w-72 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 overflow-hidden">
+    <div className={`${drawer ? 'w-[min(292px,calc(100vw-32px))]' : 'w-72'} h-full min-h-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 overflow-hidden`}>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-        <NavLink to="/" className="flex items-center gap-2">
+        <NavLink to="/" onClick={onNavigate} className="flex min-w-0 items-center gap-2">
           <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
             <Brain size={15} className="text-white" />
           </div>
           <span className="font-bold text-sm text-gray-900 dark:text-white leading-tight">Mega ML<br /><span className="text-xs font-normal text-gray-500">Algorithms Suite</span></span>
         </NavLink>
-        <button onClick={onToggle} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400">
-          <ChevronDown size={16} className="rotate-90" />
+        <button onClick={onToggle} className="grid min-h-10 min-w-10 place-items-center rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400" aria-label={drawer ? 'Close menu' : 'Collapse navigation'}>
+          {drawer ? <X size={18} /> : <ChevronDown size={16} className="rotate-90" />}
         </button>
       </div>
 
@@ -166,22 +168,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search algorithms..."
-            className="w-full pl-8 pr-7 py-1.5 text-xs bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-300"
+            className="min-h-10 w-full pl-8 pr-7 py-2 text-xs bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-300"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            <button onClick={() => setSearch('')} className="absolute right-1 top-1/2 grid min-h-8 min-w-8 -translate-y-1/2 place-items-center text-gray-400 hover:text-gray-600" aria-label="Clear search">
               <X size={12} />
             </button>
           )}
         </div>
         <div className="grid grid-cols-2 gap-2 mt-2">
-          <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)} className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+          <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)} className="min-h-10 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
             <option>All</option>
             <option>Educational</option>
             <option>Concept</option>
             <option>Scaffold</option>
           </select>
-          <select value={badgeFilter} onChange={event => setBadgeFilter(event.target.value)} className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+          <select value={badgeFilter} onChange={event => setBadgeFilter(event.target.value)} className="min-h-10 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
             <option>All</option>
             <option>Beginner</option>
             <option>Intermediate</option>
@@ -197,7 +199,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
               setStatusFilter('All');
               setBadgeFilter('All');
             }}
-            className="mt-2 w-full rounded-md border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            className="mt-2 min-h-10 w-full rounded-md border border-gray-200 px-2 py-2 text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
           >
             Clear filters
           </button>
@@ -208,8 +210,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
       <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-thin py-2">
         <NavLink
           to="/"
+          onClick={onNavigate}
           className={({ isActive }) =>
-            `flex items-center gap-2 mx-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${isActive ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`
+            `flex min-h-10 items-center gap-2 mx-2 px-3 py-2 rounded-md text-xs font-medium transition-colors ${isActive ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`
           }
           end
         >
@@ -220,7 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
           <div className="mx-2 mt-2 rounded-lg border border-yellow-200 bg-yellow-50/70 p-2 dark:border-yellow-900/60 dark:bg-yellow-950/20">
             <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wide text-yellow-700 dark:text-yellow-300">Pinned</p>
             {favoriteItems.map(item => item && (
-              <NavLink key={item.route} to={item.route} className="flex items-center justify-between rounded px-2 py-1.5 text-xs text-yellow-900 hover:bg-yellow-100 dark:text-yellow-100 dark:hover:bg-yellow-900/30">
+              <NavLink key={item.route} to={item.route} onClick={onNavigate} className="flex min-h-10 items-center justify-between rounded px-2 py-2 text-xs text-yellow-900 hover:bg-yellow-100 dark:text-yellow-100 dark:hover:bg-yellow-900/30">
                 <span className="truncate">{item.label}</span>
                 <Star size={11} className="fill-current" />
               </NavLink>
@@ -232,13 +235,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
           <div className="mx-2 mt-2 rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-800/60">
             <button
               onClick={() => setRecentOpen(open => !open)}
-              className="mb-1 flex w-full items-center justify-between rounded px-1 py-1 text-[10px] font-bold uppercase tracking-wide text-gray-500 hover:bg-white dark:text-gray-400 dark:hover:bg-gray-700"
+              className="mb-1 flex min-h-10 w-full items-center justify-between rounded px-1 py-2 text-[10px] font-bold uppercase tracking-wide text-gray-500 hover:bg-white dark:text-gray-400 dark:hover:bg-gray-700"
             >
               <span>Recent</span>
               {recentOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             </button>
             {recentOpen && recentItems.map(item => item && (
-              <NavLink key={item.route} to={item.route} className="block rounded px-2 py-1.5 text-xs text-gray-700 hover:bg-white dark:text-gray-300 dark:hover:bg-gray-700">
+              <NavLink key={item.route} to={item.route} onClick={onNavigate} className="block min-h-10 rounded px-2 py-2 text-xs text-gray-700 hover:bg-white dark:text-gray-300 dark:hover:bg-gray-700">
                 <span className="block leading-snug">{item.label}</span>
                 <span className="mt-1 flex flex-wrap gap-1">
                   {getImplementationStatus(item.route) !== 'Implemented' && <Badge type={getImplementationStatus(item.route)} size="sm" />}
@@ -263,7 +266,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
             <div key={cat.category} className="mt-1">
               <button
                 onClick={() => toggleCategory(cat.category)}
-                className={`w-full flex items-center gap-2 mx-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${hasActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'} hover:bg-gray-50 dark:hover:bg-gray-800`}
+                className={`w-full flex min-h-10 items-center gap-2 mx-2 px-3 py-2 rounded-md text-xs font-semibold transition-colors ${hasActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'} hover:bg-gray-50 dark:hover:bg-gray-800`}
                 style={{ width: 'calc(100% - 16px)' }}
               >
                 <span className="shrink-0">{iconMap[cat.icon] ?? <Layers size={13} />}</span>
@@ -281,8 +284,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
                     <NavLink
                       key={item.route}
                       to={item.route}
+                      onClick={onNavigate}
                       className={({ isActive }) =>
-                        `block mx-2 px-3 py-2 rounded-md text-xs transition-colors ${isActive ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' : status === 'Scaffold' ? 'text-red-700 bg-red-50/70 hover:bg-red-100 dark:text-red-300 dark:bg-red-900/10 dark:hover:bg-red-900/20' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`
+                        `block min-h-10 mx-2 px-3 py-2 rounded-md text-xs transition-colors ${isActive ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' : status === 'Scaffold' ? 'text-red-700 bg-red-50/70 hover:bg-red-100 dark:text-red-300 dark:bg-red-900/10 dark:hover:bg-red-900/20' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`
                       }
                     >
                       <span className="block whitespace-normal break-words leading-snug">{item.label}</span>

@@ -35,6 +35,23 @@ const PageFallback = () => (
   </div>
 );
 
+const GlobalFooter = () => (
+  <footer className="border-t border-gray-200 bg-white px-4 py-5 text-gray-600 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300 sm:px-6">
+    <div className="mx-auto flex max-w-7xl flex-col gap-2 text-center text-xs sm:flex-row sm:items-center sm:justify-between sm:text-left">
+      <div>
+        <a href="https://www.AimerSociety.com" className="font-bold text-gray-900 hover:text-blue-600 dark:text-white dark:hover:text-blue-300">
+          www.AimerSociety.com
+        </a>
+        <p className="mt-1 font-semibold">AI Learning Tools</p>
+      </div>
+      <div className="sm:text-right">
+        <p>Artificial Intelligence Medical & Engineering Researchers Society Tools</p>
+        <p className="mt-1 text-gray-500 dark:text-gray-400">All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+);
+
 class RouteErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
   state = { error: null };
 
@@ -76,6 +93,11 @@ export const RootLayout: React.FC = () => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         setRouteSearchOpen(true);
+        return;
+      }
+      if (event.key === 'Escape') {
+        setMobileSidebarOpen(false);
+        setRouteSearchOpen(false);
         return;
       }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
@@ -120,29 +142,31 @@ export const RootLayout: React.FC = () => {
       <div className="hidden h-full min-h-0 md:block">
         <Sidebar collapsed={collapsed} onToggle={toggle} />
       </div>
+      {!mobileSidebarOpen && (
+        <button
+          onClick={() => setMobileSidebarOpen(true)}
+          className="fixed left-3 top-3 z-30 inline-flex min-h-10 items-center gap-2 rounded-full border border-gray-200 bg-white/95 px-3 text-xs font-bold text-gray-700 shadow-lg backdrop-blur hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900/95 dark:text-gray-100 dark:hover:bg-gray-800 md:hidden"
+          aria-label="Open menu"
+        >
+          <Menu size={16} />
+          Menu
+        </button>
+      )}
       {mobileSidebarOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
-          <button aria-label="Close sidebar overlay" className="absolute inset-0 bg-gray-950/50" onClick={() => setMobileSidebarOpen(false)} />
-          <div className="relative h-full w-72 max-w-[85vw] shadow-2xl">
-            <Sidebar collapsed={false} onToggle={() => setMobileSidebarOpen(false)} />
+        <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
+          <button aria-label="Close menu backdrop" className="absolute inset-0 bg-gray-950/55 backdrop-blur-[1px]" onClick={() => setMobileSidebarOpen(false)} />
+          <div className="relative h-full w-fit max-w-[calc(100vw-32px)] shadow-2xl">
+            <Sidebar collapsed={false} drawer onToggle={() => setMobileSidebarOpen(false)} onNavigate={() => setMobileSidebarOpen(false)} />
           </div>
         </div>
       )}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <div className="h-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 shrink-0">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setMobileSidebarOpen(true)}
-              className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 md:hidden"
-              aria-label="Open sidebar"
-              title="Open sidebar"
-            >
-              <Menu size={16} />
-            </button>
+        <div className="min-h-12 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-end px-3 pl-24 sm:justify-between sm:px-4 sm:pl-4 shrink-0">
+          <div className="hidden items-center gap-2 sm:flex">
             <button
               onClick={() => setRouteSearchOpen(true)}
-              className="hidden items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 sm:flex"
+              className="hidden min-h-10 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs text-gray-500 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 sm:flex"
               title="Search routes (Ctrl+K)"
             >
               <Search size={13} />
@@ -150,18 +174,28 @@ export const RootLayout: React.FC = () => {
               <kbd className="rounded border border-gray-200 px-1 text-[10px] dark:border-gray-600">Ctrl K</kbd>
             </button>
           </div>
-          <button
-            onClick={toggleTheme}
-            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
-            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setRouteSearchOpen(true)}
+              className="grid min-h-10 min-w-10 place-items-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 sm:hidden"
+              title="Search routes"
+              aria-label="Search routes"
+            >
+              <Search size={16} />
+            </button>
+            <button
+              onClick={toggleTheme}
+              className="grid min-h-10 min-w-10 place-items-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+          </div>
         </div>
         {currentItem && algorithmStatus && (
-          <div className={`shrink-0 border-b px-4 py-2 ${statusTone}`} key={favoriteTick}>
-            <div className="flex flex-wrap items-center gap-2">
+          <div className={`shrink-0 border-b px-3 py-2 sm:px-4 ${statusTone}`} key={favoriteTick}>
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               {algorithmStatus === 'Implemented' ? <CheckCircle2 size={15} /> : algorithmStatus === 'Scaffold' ? <AlertTriangle size={15} /> : <Info size={15} />}
               <Link to="/implementation-matrix" className="text-xs font-bold uppercase tracking-wide hover:underline">
                 {algorithmStatus === 'Implemented' ? 'Algorithm Tools' : 'Implementation Status'}
@@ -180,7 +214,7 @@ export const RootLayout: React.FC = () => {
                   toggleFavoriteRoute(currentItem.route);
                   setFavoriteTick(tick => tick + 1);
                 }}
-                className="inline-flex items-center gap-1 rounded border border-current/20 bg-white/50 px-2 py-1 text-[11px] font-semibold hover:bg-white/80 dark:bg-gray-900/30 dark:hover:bg-gray-900/50"
+                className="inline-flex min-h-10 items-center gap-1 rounded border border-current/20 bg-white/50 px-2 py-2 text-[11px] font-semibold hover:bg-white/80 dark:bg-gray-900/30 dark:hover:bg-gray-900/50"
                 title={isFavorite ? 'Remove from pinned algorithms' : 'Pin this algorithm'}
                 aria-label={isFavorite ? 'Remove pinned algorithm' : 'Pin algorithm'}
               >
@@ -190,7 +224,7 @@ export const RootLayout: React.FC = () => {
               {adjacent.previous && (
                 <Link
                   to={adjacent.previous.route}
-                  className="inline-flex items-center gap-1 rounded border border-current/20 bg-white/50 px-2 py-1 text-[11px] font-semibold hover:bg-white/80 dark:bg-gray-900/30 dark:hover:bg-gray-900/50"
+                  className="inline-flex min-h-10 items-center gap-1 rounded border border-current/20 bg-white/50 px-2 py-2 text-[11px] font-semibold hover:bg-white/80 dark:bg-gray-900/30 dark:hover:bg-gray-900/50"
                   title={`Previous: ${adjacent.previous.label}`}
                 >
                   <ChevronLeft size={13} />
@@ -200,14 +234,14 @@ export const RootLayout: React.FC = () => {
               {adjacent.next && (
                 <Link
                   to={adjacent.next.route}
-                  className="inline-flex items-center gap-1 rounded border border-current/20 bg-white/50 px-2 py-1 text-[11px] font-semibold hover:bg-white/80 dark:bg-gray-900/30 dark:hover:bg-gray-900/50"
+                  className="inline-flex min-h-10 items-center gap-1 rounded border border-current/20 bg-white/50 px-2 py-2 text-[11px] font-semibold hover:bg-white/80 dark:bg-gray-900/30 dark:hover:bg-gray-900/50"
                   title={`Next: ${adjacent.next.label}`}
                 >
                   <span className="hidden sm:inline">Next</span>
                   <ChevronRight size={13} />
                 </Link>
               )}
-              <div className="flex w-full flex-wrap gap-1 pt-1 sm:w-auto sm:pt-0">
+              <div className="flex w-full gap-1 overflow-x-auto pt-1 scrollbar-thin sm:w-auto sm:flex-wrap sm:overflow-visible sm:pt-0">
                 {algorithmStatus === 'Implemented' && ['data', 'controls', 'chart', 'metrics', 'export', 'save'].map(item => (
                   <span key={item} className="hidden rounded bg-white/50 px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide dark:bg-gray-900/30 lg:inline">
                     {item}
@@ -217,7 +251,7 @@ export const RootLayout: React.FC = () => {
                   <button
                     key={button.event}
                     onClick={() => window.dispatchEvent(new CustomEvent(`ml:${button.event}`))}
-                    className="inline-flex items-center gap-1 rounded border border-current/20 bg-white/50 px-2 py-1 text-[11px] font-semibold hover:bg-white/80 dark:bg-gray-900/30 dark:hover:bg-gray-900/50"
+                    className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded border border-current/20 bg-white/50 px-2 py-2 text-[11px] font-semibold hover:bg-white/80 dark:bg-gray-900/30 dark:hover:bg-gray-900/50"
                     title={`${button.label} (${button.hint})`}
                     aria-label={`${button.label} command`}
                   >
@@ -230,11 +264,12 @@ export const RootLayout: React.FC = () => {
           </div>
         )}
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto scrollbar-thin">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
           <RouteErrorBoundary key={location.pathname}>
             <Suspense fallback={<PageFallback />}>
               <Outlet />
               {currentItem && <AlgorithmFAQ algorithm={currentItem} />}
+              <GlobalFooter />
             </Suspense>
           </RouteErrorBoundary>
         </main>

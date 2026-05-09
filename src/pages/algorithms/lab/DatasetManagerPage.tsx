@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Database, Download, Trash2, Upload } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { BarChart3, Database, Download, Grid3X3, LineChart, Table2, Trash2, Upload } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
 import { allSampleDatasets } from '../../../data/sampleDatasets';
@@ -8,6 +9,7 @@ import { getAllAlgorithms } from '../../../data/implementationStatus';
 import { deleteDataset, loadDatasets, saveDataset, SavedDataset } from '../../../stores/experimentStore';
 
 type Row = Record<string, unknown>;
+const ACTIVE_DATASETS_KEY = 'mlSuite.activeAlgorithmDatasets';
 
 function parseCSV(text: string): { columns: string[]; data: Row[] } {
   const lines = text.trim().split(/\r?\n/).filter(Boolean);
@@ -33,6 +35,7 @@ function download(filename: string, content: string, type: string) {
 }
 
 export default function DatasetManagerPage() {
+  const navigate = useNavigate();
   const algorithms = useMemo(() => getAllAlgorithms(), []);
   const [algorithmRoute, setAlgorithmRoute] = useState('/ml/supervised/logistic-regression');
   const selectedAlgorithm = algorithms.find(item => item.route === algorithmRoute) ?? algorithms[0];
@@ -48,6 +51,7 @@ export default function DatasetManagerPage() {
     data: algorithmSamples[0]?.data ?? allSampleDatasets[0].data,
   });
   const [message, setMessage] = useState('');
+  const [activeDatasetId, setActiveDatasetId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = async () => setSaved(await loadDatasets());
@@ -72,6 +76,30 @@ export default function DatasetManagerPage() {
     setSelectedId(id);
     setName(dataset.name);
     setDraft({ columns: dataset.columns, data: dataset.data });
+  };
+
+  const setActiveDataset = (dataset: SavedDataset, route = '/ml/lab/dataset-manager') => {
+    const current = JSON.parse(localStorage.getItem(ACTIVE_DATASETS_KEY) ?? '{}') as Record<string, unknown>;
+    current[route] = {
+      id: dataset.id,
+      name: dataset.name,
+      description: `${dataset.data.length} saved rows from your browser storage.`,
+      columns: dataset.columns,
+      data: dataset.data,
+      kind: 'upload',
+    };
+    localStorage.setItem(ACTIVE_DATASETS_KEY, JSON.stringify(current));
+    window.dispatchEvent(new CustomEvent('ml:algorithm-dataset-loaded', { detail: { route, dataset } }));
+    setActiveDatasetId(dataset.id);
+  };
+
+  const loadSavedDataset = (dataset: SavedDataset, shouldNavigate = false) => {
+    setName(dataset.name);
+    setTags(dataset.tags?.join(', ') || 'saved, local');
+    setDraft({ columns: dataset.columns, data: dataset.data });
+    setActiveDataset(dataset);
+    setMessage(`${dataset.name} is active.`);
+    if (shouldNavigate) navigate('/ml/lab/dataset-manager');
   };
 
   const loadAlgorithm = (route: string) => {
@@ -119,20 +147,45 @@ export default function DatasetManagerPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_1fr]">
         <div className="space-y-4">
+          <Card title="Saved Datasets">
+            <div className="space-y-2">
+              {saved.map(dataset => (
+                <button
+                  key={dataset.id}
+                  onClick={() => loadSavedDataset(dataset, true)}
+                  className={`flex min-h-10 w-full items-center justify-between gap-3 rounded border px-3 py-2 text-left text-sm transition-colors ${
+                    activeDatasetId === dataset.id
+                      ? 'border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100'
+                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:hover:bg-blue-950/30'
+                  }`}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-semibold">{dataset.name}</span>
+                    <span className="block text-xs text-gray-500">{dataset.data.length} rows, {dataset.columns.length} columns</span>
+                  </span>
+                  <Upload size={14} className="shrink-0" />
+                </button>
+              ))}
+              {saved.length === 0 && (
+                <p className="text-sm text-gray-500">No saved datasets yet. Upload a CSV/JSON file or save one of the samples below.</p>
+              )}
+            </div>
+          </Card>
+
           <Card title="Upload and Save">
             <div className="space-y-3 text-sm">
-              <select value={algorithmRoute} onChange={event => loadAlgorithm(event.target.value)} className="w-full rounded border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900">
+              <select value={algorithmRoute} onChange={event => loadAlgorithm(event.target.value)} className="min-h-10 w-full rounded border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900">
                 {algorithms.map(algorithm => <option key={algorithm.route} value={algorithm.route}>{algorithm.category} - {algorithm.label}</option>)}
               </select>
-              <select value={selectedId} onChange={event => loadSample(event.target.value)} className="w-full rounded border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900">
+              <select value={selectedId} onChange={event => loadSample(event.target.value)} className="min-h-10 w-full rounded border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900">
                 {algorithmSamples.map(dataset => <option key={dataset.id} value={dataset.id}>{dataset.name}</option>)}
               </select>
-              <input value={name} onChange={event => setName(event.target.value)} className="w-full rounded border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900" />
-              <input value={tags} onChange={event => setTags(event.target.value)} className="w-full rounded border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900" placeholder="tags" />
+              <input value={name} onChange={event => setName(event.target.value)} className="min-h-10 w-full rounded border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900" />
+              <input value={tags} onChange={event => setTags(event.target.value)} className="min-h-10 w-full rounded border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900" placeholder="tags" />
               <input ref={fileRef} type="file" accept=".csv,.json" className="hidden" onChange={event => event.target.files?.[0] && handleUpload(event.target.files[0])} />
               <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => fileRef.current?.click()} className="flex items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 dark:border-gray-700"><Upload size={14} /> Upload</button>
-                <button onClick={handleSave} className="rounded bg-blue-600 px-3 py-2 font-semibold text-white">Save</button>
+                <button onClick={() => fileRef.current?.click()} className="flex min-h-10 items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 dark:border-gray-700"><Upload size={14} /> Upload</button>
+                <button onClick={handleSave} className="min-h-10 rounded bg-blue-600 px-3 py-2 font-semibold text-white">Save</button>
               </div>
               {message && <p className="text-xs text-green-600">{message}</p>}
             </div>
@@ -151,13 +204,29 @@ export default function DatasetManagerPage() {
 
           <Card title="Export">
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <button onClick={() => download(`${name}.csv`, toCSV(draft.columns, draft.data), 'text/csv')} className="flex items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 dark:border-gray-700"><Download size={14} /> CSV</button>
-              <button onClick={() => download(`${name}.json`, JSON.stringify(draft, null, 2), 'application/json')} className="flex items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 dark:border-gray-700"><Download size={14} /> JSON</button>
+              <button onClick={() => download(`${name}.csv`, toCSV(draft.columns, draft.data), 'text/csv')} className="flex min-h-10 items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 dark:border-gray-700"><Download size={14} /> CSV</button>
+              <button onClick={() => download(`${name}.json`, JSON.stringify(draft, null, 2), 'application/json')} className="flex min-h-10 items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 dark:border-gray-700"><Download size={14} /> JSON</button>
             </div>
           </Card>
         </div>
 
         <div className="space-y-4">
+          <Card title="Next Steps">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[
+                { label: 'Visualize', to: selectedAlgorithm.route, icon: LineChart },
+                { label: 'Dashboard', to: '/ml/lab/algorithm-comparison', icon: BarChart3 },
+                { label: 'Statistics', to: '/ml/preprocessing/missing-values', icon: Table2 },
+                { label: 'Data Grid', to: '/ml/lab/dataset-manager', icon: Grid3X3 },
+              ].map(({ label, to, icon: Icon }) => (
+                <Link key={label} to={to} className="inline-flex min-h-10 items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 text-sm font-semibold hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:hover:bg-blue-950/30">
+                  <Icon size={15} />
+                  {label}
+                </Link>
+              ))}
+            </div>
+          </Card>
+
           <Card title="Editable Preview Grid">
             <div className="overflow-auto">
               <table className="w-full text-xs">
@@ -180,12 +249,12 @@ export default function DatasetManagerPage() {
           <Card title="Saved IndexedDB Datasets">
             <div className="space-y-2">
               {saved.map(dataset => (
-                <div key={dataset.id} className="flex items-center justify-between rounded border border-gray-200 p-3 text-sm dark:border-gray-700">
-                  <div>
+                <div key={dataset.id} className="flex flex-col gap-3 rounded border border-gray-200 p-3 text-sm dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between">
+                  <button onClick={() => loadSavedDataset(dataset)} className="min-w-0 text-left">
                     <p className="font-semibold">{dataset.name}</p>
                     <p className="text-xs text-gray-500">{dataset.data.length} rows, {dataset.columns.length} columns, tags: {dataset.tags?.join(', ') || 'none'}</p>
-                  </div>
-                  <button onClick={async () => { await deleteDataset(dataset.id); await refresh(); }} className="rounded p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 size={16} /></button>
+                  </button>
+                  <button onClick={async () => { await deleteDataset(dataset.id); await refresh(); }} className="grid min-h-10 min-w-10 place-items-center self-start rounded text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 sm:self-auto" aria-label={`Delete ${dataset.name}`}><Trash2 size={16} /></button>
                 </div>
               ))}
               {saved.length === 0 && <p className="text-sm text-gray-500">No saved datasets yet.</p>}
