@@ -66,12 +66,19 @@ export const housingDataset: Dataset = {
 export const studentMarksDataset: Dataset = {
   id: 'student-marks',
   name: 'Student Marks Dataset',
-  description: 'Simple dataset for demonstrating linear regression with study hours.',
+  description: '120 deterministic student records where more study hours generally lead to higher marks.',
   type: 'regression',
   columns: ['study_hours', 'marks'],
-  data: Array.from({ length: 30 }, (_, i) => {
-    const hours = 1 + i * 0.5 + (Math.random() - 0.5) * 0.5;
-    return { study_hours: parseFloat(hours.toFixed(1)), marks: parseFloat((20 + hours * 8 + (Math.random() - 0.5) * 8).toFixed(1)) };
+  data: Array.from({ length: 120 }, (_, index) => {
+    const hours = 0.5 + (index % 40) * 0.25 + Math.floor(index / 40) * 0.08;
+    const disciplineBoost = ((index * 7) % 11) - 5;
+    const attendanceBoost = ((index * 13) % 9) - 4;
+    const marks = Math.max(18, Math.min(99, 22 + hours * 7.3 + disciplineBoost * 0.9 + attendanceBoost * 0.45));
+    return {
+      student_id: index + 1,
+      study_hours: parseFloat(hours.toFixed(2)),
+      marks: parseFloat(marks.toFixed(1)),
+    };
   }),
 };
 
@@ -232,6 +239,232 @@ export const loanDataset: Dataset = {
   ],
 };
 
+export const customerChurnDataset: Dataset = {
+  id: 'customer-churn',
+  name: 'Customer Churn Dataset',
+  description: 'Subscription customers with tenure, usage, support activity, and churn labels for classification and explainability.',
+  type: 'classification',
+  columns: ['customer_id', 'tenure_months', 'monthly_fee', 'usage_hours', 'support_tickets', 'late_payments', 'satisfaction', 'churned'],
+  data: Array.from({ length: 140 }, (_, index) => {
+    const tenure = 1 + (index * 7) % 60;
+    const monthlyFee = 18 + ((index * 11) % 80);
+    const usage = 4 + ((index * 13) % 95) / 2;
+    const supportTickets = (index * 5) % 8;
+    const latePayments = (index * 3) % 5;
+    const satisfaction = Math.max(1, Math.min(10, 9 - supportTickets * 0.8 - latePayments * 0.7 + usage / 35 - monthlyFee / 120));
+    const churnScore = monthlyFee / 28 + supportTickets * 1.6 + latePayments * 2.1 - tenure / 16 - usage / 20 - satisfaction;
+    return {
+      customer_id: index + 1,
+      tenure_months: tenure,
+      monthly_fee: Number(monthlyFee.toFixed(2)),
+      usage_hours: Number(usage.toFixed(1)),
+      support_tickets: supportTickets,
+      late_payments: latePayments,
+      satisfaction: Number(satisfaction.toFixed(1)),
+      churned: churnScore > -0.6 ? 1 : 0,
+    };
+  }),
+};
+
+export const medicalRiskDataset: Dataset = {
+  id: 'medical-risk',
+  name: 'Medical Risk Screening Dataset',
+  description: 'Synthetic patient screening table for logistic regression, trees, ROC/PR curves, and feature importance.',
+  type: 'classification',
+  columns: ['patient_id', 'age', 'bmi', 'systolic_bp', 'cholesterol', 'glucose', 'exercise_hours', 'high_risk'],
+  data: Array.from({ length: 150 }, (_, index) => {
+    const age = 22 + (index * 3) % 58;
+    const bmi = 18 + ((index * 7) % 170) / 10;
+    const systolic = 102 + (index * 11) % 68;
+    const cholesterol = 145 + (index * 13) % 120;
+    const glucose = 74 + (index * 17) % 88;
+    const exercise = ((index * 5) % 16) / 2;
+    const risk = age * 0.035 + bmi * 0.11 + systolic * 0.018 + cholesterol * 0.008 + glucose * 0.015 - exercise * 0.32;
+    return {
+      patient_id: index + 1,
+      age,
+      bmi: Number(bmi.toFixed(1)),
+      systolic_bp: systolic,
+      cholesterol,
+      glucose,
+      exercise_hours: Number(exercise.toFixed(1)),
+      high_risk: risk > 9.2 ? 1 : 0,
+    };
+  }),
+};
+
+export const fraudTransactionsDataset: Dataset = {
+  id: 'fraud-transactions',
+  name: 'Fraud Transactions Dataset',
+  description: 'Payment transactions with amount, timing, device, distance, and fraud labels for imbalanced classification.',
+  type: 'classification',
+  columns: ['transaction_id', 'amount', 'hour', 'merchant_risk', 'device_age_days', 'distance_from_home_km', 'previous_declines', 'fraud'],
+  data: Array.from({ length: 180 }, (_, index) => {
+    const amount = 12 + ((index * 37) % 900) + ((index % 9) * 0.79);
+    const hour = (index * 5) % 24;
+    const merchantRisk = ((index * 7) % 10) / 10;
+    const deviceAge = (index * 19) % 720;
+    const distance = ((index * 23) % 400) / 2;
+    const declines = (index * 11) % 4;
+    const suspicious = amount > 620 || (hour < 5 && distance > 120) || (merchantRisk > 0.7 && declines >= 2) || deviceAge < 10;
+    return {
+      transaction_id: index + 1,
+      amount: Number(amount.toFixed(2)),
+      hour,
+      merchant_risk: Number(merchantRisk.toFixed(1)),
+      device_age_days: deviceAge,
+      distance_from_home_km: Number(distance.toFixed(1)),
+      previous_declines: declines,
+      fraud: suspicious ? 1 : 0,
+    };
+  }),
+};
+
+export const energyDemandDataset: Dataset = {
+  id: 'energy-demand',
+  name: 'Energy Demand Regression Dataset',
+  description: 'Hourly energy demand from weather and calendar signals for regression, boosting, and feature selection.',
+  type: 'regression',
+  columns: ['hour_id', 'temperature_c', 'humidity', 'wind_kph', 'is_weekend', 'hour_of_day', 'demand_mw'],
+  data: Array.from({ length: 168 }, (_, index) => {
+    const hour = index % 24;
+    const day = Math.floor(index / 24);
+    const temperature = 18 + Math.sin(index / 9) * 9 + (hour > 13 ? 4 : 0);
+    const humidity = 42 + Math.cos(index / 11) * 22;
+    const wind = 5 + ((index * 7) % 28);
+    const weekend = day % 7 >= 5 ? 1 : 0;
+    const eveningPeak = hour >= 18 && hour <= 22 ? 55 : 0;
+    const workdayLoad = weekend ? -28 : 24;
+    const demand = 260 + Math.max(0, temperature - 22) * 7 + Math.max(0, 18 - temperature) * 5 + eveningPeak + workdayLoad + humidity * 0.35 - wind * 0.8;
+    return {
+      hour_id: index + 1,
+      temperature_c: Number(temperature.toFixed(1)),
+      humidity: Number(humidity.toFixed(1)),
+      wind_kph: wind,
+      is_weekend: weekend,
+      hour_of_day: hour,
+      demand_mw: Number(demand.toFixed(1)),
+    };
+  }),
+};
+
+export const weatherDailyDataset: Dataset = {
+  id: 'weather-daily',
+  name: 'Daily Weather Forecast Dataset',
+  description: 'Daily temperature, rainfall, humidity, and wind patterns for time-series smoothing and anomaly detection.',
+  type: 'timeSeries',
+  columns: ['day', 'temperature_c', 'rainfall_mm', 'humidity', 'wind_kph'],
+  data: Array.from({ length: 120 }, (_, index) => {
+    const temperature = 21 + Math.sin(index / 14) * 8 + Math.sin(index / 4) * 1.8;
+    const rainfall = Math.max(0, Math.sin(index / 6) * 12 + ((index * 7) % 5) - 3);
+    return {
+      day: `Day ${index + 1}`,
+      temperature_c: Number(temperature.toFixed(1)),
+      rainfall_mm: Number(rainfall.toFixed(1)),
+      humidity: Number((58 + rainfall * 1.7 + Math.cos(index / 8) * 12).toFixed(1)),
+      wind_kph: Number((8 + ((index * 5) % 18) + Math.sin(index / 5) * 2).toFixed(1)),
+    };
+  }),
+};
+
+export const sensorAnomalyDataset: Dataset = {
+  id: 'sensor-anomaly',
+  name: 'Factory Sensor Anomaly Dataset',
+  description: 'Machine sensor readings with vibration, pressure, temperature, and anomaly labels for outlier and time-series labs.',
+  type: 'timeSeries',
+  columns: ['timestamp', 'temperature_c', 'vibration_mm_s', 'pressure_bar', 'throughput', 'is_anomaly'],
+  data: Array.from({ length: 144 }, (_, index) => {
+    const spike = index % 47 === 0 || index % 61 === 0;
+    const temperature = 63 + Math.sin(index / 10) * 4 + (spike ? 13 : 0);
+    const vibration = 2.2 + Math.cos(index / 8) * 0.7 + (spike ? 3.6 : 0);
+    const pressure = 7.8 + Math.sin(index / 12) * 0.9 + (spike ? -2.2 : 0);
+    return {
+      timestamp: `T+${index}`,
+      temperature_c: Number(temperature.toFixed(1)),
+      vibration_mm_s: Number(vibration.toFixed(2)),
+      pressure_bar: Number(pressure.toFixed(2)),
+      throughput: Number((94 + Math.sin(index / 6) * 8 - (spike ? 24 : 0)).toFixed(1)),
+      is_anomaly: spike ? 1 : 0,
+    };
+  }),
+};
+
+export const retailBasketDataset: Dataset = {
+  id: 'retail-basket',
+  name: 'Retail Basket Dataset',
+  description: 'Customer baskets with item counts and spend for clustering, association-style exploration, and recommendations.',
+  type: 'clustering',
+  columns: ['basket_id', 'produce', 'dairy', 'bakery', 'meat', 'snacks', 'household', 'basket_value', 'segment'],
+  data: Array.from({ length: 120 }, (_, index) => {
+    const segmentId = index % 4;
+    const produce = segmentId === 0 ? 6 + index % 5 : 1 + index % 4;
+    const dairy = segmentId === 1 ? 5 + index % 4 : 1 + (index * 2) % 4;
+    const bakery = segmentId === 2 ? 5 + index % 5 : 1 + (index * 3) % 3;
+    const meat = segmentId === 3 ? 4 + index % 4 : (index * 5) % 3;
+    const snacks = segmentId === 2 ? 6 + (index * 2) % 5 : 1 + index % 4;
+    const household = segmentId === 3 ? 5 + index % 4 : (index * 7) % 3;
+    const value = produce * 3.2 + dairy * 2.6 + bakery * 2.1 + meat * 6.5 + snacks * 1.8 + household * 4.4;
+    return {
+      basket_id: index + 1,
+      produce,
+      dairy,
+      bakery,
+      meat,
+      snacks,
+      household,
+      basket_value: Number(value.toFixed(2)),
+      segment: ['fresh-focused', 'family-dairy', 'snack-heavy', 'pantry-stock'][segmentId],
+    };
+  }),
+};
+
+export const newsTopicDataset: Dataset = {
+  id: 'news-topics',
+  name: 'News Topic Text Dataset',
+  description: 'Short labeled article snippets for text classification, TF-IDF, embeddings, and transformer attention.',
+  type: 'nlp',
+  columns: ['text', 'label'],
+  data: [
+    { text: 'The central bank held rates steady while inflation cooled across services.', label: 'business' },
+    { text: 'Quarterly revenue climbed after cloud subscriptions beat analyst expectations.', label: 'business' },
+    { text: 'A new battery chemistry promises faster charging for electric vehicles.', label: 'technology' },
+    { text: 'Researchers released an open model for efficient on-device translation.', label: 'technology' },
+    { text: 'The home side won the final after a late goal in extra time.', label: 'sports' },
+    { text: 'The rookie guard scored thirty points and led the comeback.', label: 'sports' },
+    { text: 'Doctors reported improved outcomes from an early screening program.', label: 'health' },
+    { text: 'Daily walking and sleep quality were linked to lower cardiac risk.', label: 'health' },
+    { text: 'The studio announced a sequel after the film topped weekend charts.', label: 'entertainment' },
+    { text: 'A streaming drama earned awards for writing and production design.', label: 'entertainment' },
+    { text: 'Chip makers expanded fabrication capacity for AI accelerators.', label: 'technology' },
+    { text: 'Exports rose as manufacturers recovered from supply delays.', label: 'business' },
+    { text: 'The striker signed a long-term contract before the playoffs.', label: 'sports' },
+    { text: 'Nutrition labels will be redesigned to highlight added sugar.', label: 'health' },
+    { text: 'The festival lineup includes independent films and live concerts.', label: 'entertainment' },
+  ],
+};
+
+export const productReviewsDataset: Dataset = {
+  id: 'product-reviews',
+  name: 'Product Reviews Sentiment Dataset',
+  description: 'Short commerce reviews labeled by sentiment for NLP classification and recommendation content signals.',
+  type: 'nlp',
+  columns: ['text', 'label'],
+  data: [
+    { text: 'Battery life is excellent and the screen is bright outdoors.', label: 'positive' },
+    { text: 'The case cracked after one week and support was slow.', label: 'negative' },
+    { text: 'Setup was simple but the speakers are only average.', label: 'neutral' },
+    { text: 'Great build quality, fast delivery, and worth the price.', label: 'positive' },
+    { text: 'It overheats during normal use and feels unfinished.', label: 'negative' },
+    { text: 'The design is clean though performance is just okay.', label: 'neutral' },
+    { text: 'Camera quality surprised me in low light.', label: 'positive' },
+    { text: 'The app disconnects often and loses saved settings.', label: 'negative' },
+    { text: 'Packaging was fine and all accessories were included.', label: 'neutral' },
+    { text: 'Excellent value for students and remote work.', label: 'positive' },
+    { text: 'Buttons feel loose and the warranty process is confusing.', label: 'negative' },
+    { text: 'Works as described with no major issues.', label: 'neutral' },
+  ],
+};
+
 export function generateSyntheticBlobs(n = 100, k = 3): { x: number; y: number; label: number }[] {
   const centers = Array.from({ length: k }, (_, i) => ({
     cx: Math.cos((i * 2 * Math.PI) / k) * 3,
@@ -281,9 +514,18 @@ export const allSampleDatasets: Dataset[] = [
   housingDataset,
   studentMarksDataset,
   mallCustomersDataset,
+  retailBasketDataset,
   timeSeriesSalesDataset,
+  weatherDailyDataset,
+  sensorAnomalyDataset,
   sentimentDataset,
   spamDataset,
+  newsTopicDataset,
+  productReviewsDataset,
   ratingsDataset,
   loanDataset,
+  customerChurnDataset,
+  medicalRiskDataset,
+  fraudTransactionsDataset,
+  energyDemandDataset,
 ];

@@ -5,6 +5,7 @@ import { Camera, Layers, Play, Square } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
 import { MetricsPanel } from '../../../components/ml/MetricsPanel';
+import { stopMediaElementStream, stopMediaStream } from '../../../lib/media/streams';
 
 const W = 640;
 const H = 360;
@@ -34,6 +35,7 @@ export default function PersonSegmentationPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const segmenterRef = useRef<any>(null);
   const loopRef = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [running, setRunning] = useState(false);
   const [mode, setMode] = useState<'mask' | 'blur'>('mask');
   const [people, setPeople] = useState(0);
@@ -42,8 +44,9 @@ export default function PersonSegmentationPage() {
   useEffect(() => () => {
     if (loopRef.current) cancelAnimationFrame(loopRef.current);
     segmenterRef.current?.dispose?.();
-    const stream = videoRef.current?.srcObject as MediaStream | null;
-    stream?.getTracks().forEach(track => track.stop());
+    stopMediaStream(streamRef.current);
+    streamRef.current = null;
+    stopMediaElementStream(videoRef.current);
   }, []);
 
   const tick = async () => {
@@ -67,6 +70,7 @@ export default function PersonSegmentationPage() {
   };
 
   const start = async () => {
+    stop(false);
     await tf.setBackend('webgl');
     await tf.ready();
     setStatus('Loading BodyPix segmenter...');
@@ -78,7 +82,11 @@ export default function PersonSegmentationPage() {
       quantBytes: 2,
     });
     const stream = await navigator.mediaDevices.getUserMedia({ video: { width: W, height: H }, audio: false });
-    if (!videoRef.current) return;
+    if (!videoRef.current) {
+      stopMediaStream(stream);
+      return;
+    }
+    streamRef.current = stream;
     videoRef.current.srcObject = stream;
     await videoRef.current.play();
     setRunning(true);
@@ -86,11 +94,14 @@ export default function PersonSegmentationPage() {
     loopRef.current = requestAnimationFrame(tick);
   };
 
-  const stop = () => {
+  const stop = (updateStatus = true) => {
     if (loopRef.current) cancelAnimationFrame(loopRef.current);
     loopRef.current = null;
+    stopMediaStream(streamRef.current);
+    streamRef.current = null;
+    stopMediaElementStream(videoRef.current);
     setRunning(false);
-    setStatus('Segmentation paused.');
+    if (updateStatus) setStatus('Segmentation stopped and webcam released.');
   };
 
   return (
@@ -101,7 +112,7 @@ export default function PersonSegmentationPage() {
           <Card title="Controls" icon={<Camera size={14} />}>
             <div className="grid grid-cols-2 gap-2">
               <button onClick={start} disabled={running} className="inline-flex items-center justify-center gap-2 rounded bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"><Play size={14} /> Start</button>
-              <button onClick={stop} className="inline-flex items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 text-sm font-semibold dark:border-gray-700"><Square size={14} /> Stop</button>
+              <button onClick={() => stop()} className="inline-flex items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 text-sm font-semibold dark:border-gray-700"><Square size={14} /> Stop</button>
             </div>
             <select value={mode} onChange={event => setMode(event.target.value as 'mask' | 'blur')} className="mt-3 w-full rounded border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900">
               <option value="mask">Blue person mask</option>

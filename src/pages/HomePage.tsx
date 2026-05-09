@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Brain, TrendingUp, Network, Minimize2, BookOpen, FlaskConical, ArrowRight, Zap, Shield, Globe, Clock, Database, GraduationCap, Trophy } from 'lucide-react';
-import { getImplementationStatus, getLearningPath, getRecentRoutes, implementationSummary, type ImplementationStatus } from '../data/implementationStatus';
+import { Brain, TrendingUp, Network, Minimize2, BookOpen, FlaskConical, ArrowRight, Clock, Database, GraduationCap, Trophy } from 'lucide-react';
+import { getImplementationStatus, getLearningPath, getRecentRoutes, implementationSummary } from '../data/implementationStatus';
 import { navigationData } from '../data/navigation';
 import { loadExperiments, type Experiment } from '../stores/experimentStore';
 import { getLearningStats } from '../stores/learningStore';
@@ -58,16 +58,7 @@ const categories = [
   },
 ];
 
-const highlights = [
-  { icon: <Globe size={16} />, text: '100% Browser-Based - No Python, No Backend' },
-  { icon: <Zap size={16} />, text: '100+ Interactive Algorithm Pages' },
-  { icon: <Shield size={16} />, text: 'Offline-Capable with IndexedDB Storage' },
-  { icon: <Brain size={16} />, text: 'TensorFlow.js & ONNX Browser Inference' },
-];
-
 export default function HomePage() {
-  const [completedOnly, setCompletedOnly] = React.useState(false);
-  const [statusFilter, setStatusFilter] = React.useState<'All' | ImplementationStatus>('All');
   const [recentExperiments, setRecentExperiments] = React.useState<Experiment[]>([]);
   const [, setProgressTick] = React.useState(0);
   const summary = implementationSummary();
@@ -84,14 +75,7 @@ export default function HomePage() {
     .map(route => allItems.find(item => item.route === route))
     .filter(Boolean)
     .slice(0, 6);
-  const activeStatus: 'All' | ImplementationStatus = completedOnly ? 'Implemented' : statusFilter;
-  const visibleCategories = categories.map(category => {
-    const prefix = category.title.split(' ')[0];
-    const count = summary.items.filter(item =>
-      item.category.includes(prefix) && (activeStatus === 'All' || getImplementationStatus(item.route) === activeStatus)
-    ).length;
-    return { ...category, count };
-  }).filter(category => activeStatus === 'All' || category.count > 0);
+  const visibleCategories = categories;
 
   React.useEffect(() => {
     loadExperiments()
@@ -122,28 +106,6 @@ export default function HomePage() {
           Learn, experiment, and compare 100+ ML algorithms with fully interactive visualizations-
           all running directly in your browser. No installation. No server.
         </p>
-        <div className="flex items-center justify-center gap-3 flex-wrap">
-          {highlights.map((h, i) => (
-            <div key={i} className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full">
-              <span className="text-blue-500">{h.icon}</span> {h.text}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Quick start */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
-        {[
-          { label: 'Total Routes', value: summary.total, tone: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100' },
-          { label: 'Ready', value: summary.counts.Implemented, tone: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
-          { label: 'Concept/Educational', value: summary.counts.Concept + summary.counts.Educational, tone: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' },
-          { label: 'Incomplete Scaffold', value: summary.counts.Scaffold, tone: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' },
-        ].map(item => (
-          <div key={item.label} className={`rounded-lg p-4 ${item.tone}`}>
-            <p className="text-2xl font-bold font-mono">{item.value}</p>
-            <p className="text-xs font-semibold">{item.label}</p>
-          </div>
-        ))}
       </div>
 
       <div className="mb-10 grid gap-4 lg:grid-cols-3">
@@ -229,27 +191,6 @@ export default function HomePage() {
             </div>
           );
         })}
-      </div>
-      <div className="mb-8 flex flex-wrap items-center justify-center gap-3">
-        <label className="flex items-center gap-2 rounded border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
-          <input type="checkbox" checked={completedOnly} onChange={event => setCompletedOnly(event.target.checked)} />
-          Show only completed pages
-        </label>
-        <div className="flex flex-wrap items-center justify-center gap-1 rounded border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-900">
-          {(['All', 'Implemented', 'Educational', 'Concept', 'Scaffold'] as const).map(status => (
-            <button
-              key={status}
-              onClick={() => {
-                setCompletedOnly(false);
-                setStatusFilter(status);
-              }}
-              className={`rounded px-2.5 py-1 text-xs font-semibold ${activeStatus === status ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'}`}
-            >
-              {status === 'Implemented' ? 'Ready' : status}
-            </button>
-          ))}
-        </div>
-        <Link to="/implementation-matrix" className="rounded bg-gray-900 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-gray-900">Open Implementation Matrix</Link>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">

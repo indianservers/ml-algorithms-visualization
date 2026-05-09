@@ -1,6 +1,7 @@
 import React from 'react';
 import { BookOpen, CheckCircle2, Code2, GraduationCap, Lightbulb, NotebookPen, Play, Trophy } from 'lucide-react';
 import { Card, InfoBox } from '../common/Card';
+import { Formula } from '../common/Formula';
 import { getLearningContent } from '../../data/learningContent';
 import { getLearnerNote, markRouteComplete, recordChallengeRun, saveLearnerNote, saveQuizResult } from '../../stores/learningStore';
 
@@ -42,6 +43,8 @@ function LearningCompanionBody({ route, compact = false }: LearningCompanionProp
     setMessage('Challenge attempt recorded. Compare one changed parameter with your previous run.');
   };
 
+  const formula = React.useMemo(() => toKatexFormula(content.formula), [content.formula]);
+
   return (
     <div className="space-y-4">
       <Card title="Learning Companion" subtitle="Objectives, intuition, quiz, notes, and challenge tracking for this route." icon={<GraduationCap size={15} />}>
@@ -64,7 +67,7 @@ function LearningCompanionBody({ route, compact = false }: LearningCompanionProp
           <div className="space-y-3">
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
               <h4 className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-gray-500"><Lightbulb size={13} /> Core Formula</h4>
-              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{content.formula}</p>
+              <Formula value={formula} block />
             </div>
             {!compact && (
               <>
@@ -130,4 +133,27 @@ function LearningCompanionBody({ route, compact = false }: LearningCompanionProp
       </Card>
     </div>
   );
+}
+
+function toKatexFormula(value: string) {
+  if (value.includes('\\') || value.includes('^') || value.includes('_')) return value;
+
+  const normalized = value
+    .replace(/mean squared error/gi, '\\text{mean squared error}')
+    .replace(/minimize/gi, '\\text{minimize}')
+    .replace(/optimize/gi, '\\text{optimize}')
+    .replace(/group points by/gi, '\\text{group points by}')
+    .replace(/project high-dimensional data into fewer dimensions while preserving variance or neighborhoods/gi, '\\text{project data while preserving variance or neighborhoods}')
+    .replace(/forward pass -> loss -> backpropagation -> weight update/gi, '\\text{forward pass} \\rightarrow \\text{loss} \\rightarrow \\text{backpropagation} \\rightarrow \\text{weight update}')
+    .replace(/theta <- theta - learning_rate \* gradient\(loss\)/gi, '\\theta \\leftarrow \\theta - \\eta \\nabla L(\\theta)')
+    .replace(/Q\(s,a\) <- Q\(s,a\) \+ alpha \[r \+ gamma max Q\(s',a'\) - Q\(s,a\)\]/gi, "Q(s,a) \\leftarrow Q(s,a) + \\alpha [r + \\gamma \\max_{a'} Q(s',a') - Q(s,a)]")
+    .replace(/J\(theta\)/g, 'J(\\theta)')
+    .replace(/y_hat/g, '\\hat{y}')
+    .replace(/\(1\/n\) sum/g, '\\frac{1}{n}\\sum')
+    .replace(/learning_rate/g, '\\eta')
+    .replace(/->/g, '\\rightarrow')
+    .replace(/<-/g, '\\leftarrow');
+
+  if (normalized === value) return `\\text{${value.replace(/[{}]/g, '')}}`;
+  return normalized;
 }

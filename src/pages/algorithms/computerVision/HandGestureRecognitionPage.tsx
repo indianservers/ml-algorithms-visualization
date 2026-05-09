@@ -6,6 +6,7 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
 import { MetricsPanel } from '../../../components/ml/MetricsPanel';
+import { stopMediaElementStream, stopMediaStream } from '../../../lib/media/streams';
 
 type GestureClass = { id: string; name: string; color: string };
 type Example = { id: string; classId: string; values: number[] };
@@ -73,6 +74,7 @@ export default function HandGestureRecognitionPage() {
   const detectorRef = useRef<any>(null);
   const modelRef = useRef<tf.LayersModel | null>(null);
   const loopRef = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const captureRef = useRef<string | null>(null);
   const latestFeatureRef = useRef<number[] | null>(null);
 
@@ -93,8 +95,9 @@ export default function HandGestureRecognitionPage() {
     if (loopRef.current) cancelAnimationFrame(loopRef.current);
     detectorRef.current?.dispose?.();
     modelRef.current?.dispose();
-    const stream = videoRef.current?.srcObject as MediaStream | null;
-    stream?.getTracks().forEach(track => track.stop());
+    stopMediaStream(streamRef.current);
+    streamRef.current = null;
+    stopMediaElementStream(videoRef.current);
   }, []);
 
   const draw = (hands: any[]) => {
@@ -149,6 +152,7 @@ export default function HandGestureRecognitionPage() {
   };
 
   const start = async () => {
+    stop(false);
     await tf.setBackend('webgl');
     await tf.ready();
     setStatus('Loading hand landmark detector...');
@@ -159,12 +163,28 @@ export default function HandGestureRecognitionPage() {
       maxHands: 1,
     } as any);
     const stream = await navigator.mediaDevices.getUserMedia({ video: { width: W, height: H }, audio: false });
-    if (!videoRef.current) return;
+    if (!videoRef.current) {
+      stopMediaStream(stream);
+      return;
+    }
+    streamRef.current = stream;
     videoRef.current.srcObject = stream;
     await videoRef.current.play();
     setRunning(true);
     setStatus('Hand tracking is live.');
     loopRef.current = requestAnimationFrame(tick);
+  };
+
+  const stop = (updateStatus = true) => {
+    if (loopRef.current) cancelAnimationFrame(loopRef.current);
+    loopRef.current = null;
+    captureRef.current = null;
+    setCapturing(null);
+    stopMediaStream(streamRef.current);
+    streamRef.current = null;
+    stopMediaElementStream(videoRef.current);
+    setRunning(false);
+    if (updateStatus) setStatus('Hand tracking stopped and webcam released.');
   };
 
   const train = async () => {
@@ -208,6 +228,7 @@ export default function HandGestureRecognitionPage() {
         <div className="space-y-4">
           <Card title="Controls" icon={<Camera size={14} />}>
             <button onClick={start} disabled={running} className="inline-flex w-full items-center justify-center gap-2 rounded bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"><Play size={14} /> Start Webcam</button>
+            <button onClick={() => stop()} disabled={!running} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 text-sm font-semibold disabled:opacity-50 dark:border-gray-700"><Camera size={14} /> Stop Webcam</button>
             <button onClick={train} disabled={!readyToTrain} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"><Play size={14} /> {training ? 'Training...' : 'Train Gestures'}</button>
             <button onClick={() => { setExamples([]); setPredictions([]); modelRef.current?.dispose(); modelRef.current = null; }} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 text-sm font-semibold dark:border-gray-700"><RotateCcw size={14} /> Reset</button>
           </Card>

@@ -10,6 +10,7 @@ import { Tabs } from '../../../components/common/Tabs';
 import { MetricsPanel } from '../../../components/ml/MetricsPanel';
 import { HyperparameterPanel, HyperparamDef } from '../../../components/ml/HyperparameterPanel';
 import { LearningPanel } from '../../../components/ml/LearningPanel';
+import { TrainingLossChart } from '../../../components/ml/TrainingLossChart';
 import { logisticRegression } from '../../../../lib/algorithms/classification/logisticRegression';
 import { binaryMetrics, rocCurve } from '../../../../lib/math/metrics';
 import { sigmoid, linspace, mean, std } from '../../../../lib/math/statistics';
@@ -38,14 +39,14 @@ export default function LogisticRegressionPage() {
   }, []);
 
   const hyperparamDefs: HyperparamDef[] = [
-    { key: 'lr', label: 'Learning Rate', type: 'select', value: params.lr,
+    { key: 'lr', label: 'Learning Rate', type: 'select', value: params.lr, tooltip: 'Step size for each gradient descent update. Too high can overshoot; too low converges slowly.',
       options: [
         { value: 0.001, label: '0.001' }, { value: 0.01, label: '0.01' },
         { value: 0.05, label: '0.05' }, { value: 0.1, label: '0.1' },
         { value: 0.5, label: '0.5' },
       ],
     },
-    { key: 'maxIter', label: 'Max Iterations', type: 'range', min: 50, max: 1000, step: 50, value: params.maxIter },
+    { key: 'maxIter', label: 'Max Iterations', type: 'range', min: 50, max: 1000, step: 50, value: params.maxIter, tooltip: 'Maximum number of gradient descent passes over the training data.' },
   ];
 
   // Prepare data
@@ -139,7 +140,15 @@ export default function LogisticRegressionPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column */}
         <div className="space-y-4">
-          <HyperparameterPanel params={hyperparamDefs} onChange={handleParamChange} />
+          <HyperparameterPanel
+            params={hyperparamDefs}
+            onChange={handleParamChange}
+            presets={[
+              { name: 'Stable', values: { lr: 0.01, maxIter: 700 } },
+              { name: 'Fast', values: { lr: 0.1, maxIter: 300 } },
+              { name: 'Aggressive', values: { lr: 0.5, maxIter: 150 } },
+            ]}
+          />
 
           <Card title="Training Controls">
             <div className="space-y-3">
@@ -251,25 +260,20 @@ export default function LogisticRegressionPage() {
                 )}
 
                 {activeTab === 'loss' && (
-                  <Card title="Training Log-Loss" subtitle="Cross-entropy loss over gradient descent iterations">
-                    {!trained ? (
-                      <InfoBox type="info">Train the model first to see the loss curve.</InfoBox>
-                    ) : (
-                      <ResponsiveContainer width="100%" height={300}>
-                        <LineChart data={lossChartData} margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="iter" tick={{ fontSize: 11 }} label={{ value: 'Iteration', position: 'insideBottom', offset: -10, fontSize: 11 }} />
-                          <YAxis tick={{ fontSize: 11 }} label={{ value: 'Log-Loss', angle: -90, position: 'insideLeft', fontSize: 11 }} />
-                          <Tooltip formatter={(v: number) => v.toFixed(6)} />
-                          <Line type="monotone" dataKey="loss" stroke="#ef4444" dot={false} strokeWidth={2} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    )}
+                  <>
+                    <TrainingLossChart
+                      data={trained ? lossChartData : []}
+                      title="Training Log-Loss"
+                      subtitle="Cross-entropy loss over gradient descent iterations."
+                      xKey="iter"
+                      showAccuracy={false}
+                      emptyText="Train the model first to see the loss curve."
+                    />
                     <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
                       <strong>Binary Cross-Entropy:</strong>{' '}
                       <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">L = -1/n · Σ[y·log(p) + (1-y)·log(1-p)]</code>
                     </div>
-                  </Card>
+                  </>
                 )}
 
                 {activeTab === 'roc' && (

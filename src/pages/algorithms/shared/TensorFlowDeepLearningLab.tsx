@@ -5,6 +5,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
 import { MetricsPanel } from '../../../components/ml/MetricsPanel';
+import { TrainingLossChart } from '../../../components/ml/TrainingLossChart';
 
 type Mode = 'cnn' | 'rnn' | 'lstm' | 'gru';
 
@@ -172,18 +173,7 @@ export default function TensorFlowDeepLearningLab({ mode }: { mode: Mode }) {
           <InfoBox type="success" title="Runtime">{status}</InfoBox>
         </div>
         <div className="space-y-4">
-          <Card title="Loss and Accuracy">
-            <ResponsiveContainer width="100%" height={340}>
-              <LineChart data={history}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="epoch" />
-                <YAxis />
-                <Tooltip />
-                <Line dataKey="loss" stroke="#dc2626" strokeWidth={2} dot={false} />
-                <Line dataKey="accuracy" stroke="#059669" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </Card>
+          <TrainingLossChart data={history} title="Loss and Accuracy" subtitle="Updates at each TensorFlow.js epoch while training runs." height={340} />
           <div className="grid gap-4 lg:grid-cols-2">
             <Card title="Input Preview">
               {mode === 'cnn' ? (

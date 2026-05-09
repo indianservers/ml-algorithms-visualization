@@ -5,6 +5,7 @@ import { Download, Mic, Play, Plus, Radio, RotateCcw, Trash2 } from 'lucide-reac
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
 import { MetricsPanel } from '../../../components/ml/MetricsPanel';
+import { stopMediaStream } from '../../../lib/media/streams';
 
 type AudioClass = { id: string; name: string; color: string };
 type AudioExample = { id: string; classId: string; values: number[] };
@@ -38,6 +39,7 @@ function downloadJson(filename: string, payload: unknown) {
 export default function AudioClassificationPage() {
   const contextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const modelRef = useRef<tf.LayersModel | null>(null);
   const captureRef = useRef<string | null>(null);
   const loopRef = useRef<number | null>(null);
@@ -57,6 +59,8 @@ export default function AudioClassificationPage() {
 
   useEffect(() => () => {
     if (loopRef.current) cancelAnimationFrame(loopRef.current);
+    stopMediaStream(streamRef.current);
+    streamRef.current = null;
     void contextRef.current?.close();
     modelRef.current?.dispose();
   }, []);
@@ -92,6 +96,7 @@ export default function AudioClassificationPage() {
   };
 
   const startMic = async () => {
+    stopMic(false);
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     const context = new AudioContext();
     const source = context.createMediaStreamSource(stream);
@@ -99,11 +104,26 @@ export default function AudioClassificationPage() {
     analyser.fftSize = 256;
     analyser.smoothingTimeConstant = 0.6;
     source.connect(analyser);
+    streamRef.current = stream;
     contextRef.current = context;
     analyserRef.current = analyser;
     setRunning(true);
     setStatus('Microphone is live.');
     loopRef.current = requestAnimationFrame(loop);
+  };
+
+  const stopMic = (updateStatus = true) => {
+    if (loopRef.current) cancelAnimationFrame(loopRef.current);
+    loopRef.current = null;
+    captureRef.current = null;
+    setCapturing(null);
+    stopMediaStream(streamRef.current);
+    streamRef.current = null;
+    void contextRef.current?.close();
+    contextRef.current = null;
+    analyserRef.current = null;
+    setRunning(false);
+    if (updateStatus) setStatus('Microphone stopped and released.');
   };
 
   const train = async () => {
@@ -146,6 +166,7 @@ export default function AudioClassificationPage() {
         <div className="space-y-4">
           <Card title="Microphone" icon={<Mic size={14} />}>
             <button onClick={startMic} disabled={running} className="inline-flex w-full items-center justify-center gap-2 rounded bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"><Radio size={14} /> Start Microphone</button>
+            <button onClick={() => stopMic()} disabled={!running} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 text-sm font-semibold disabled:opacity-50 dark:border-gray-700"><Mic size={14} /> Stop Microphone</button>
             <button onClick={train} disabled={!readyToTrain} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"><Play size={14} /> {training ? 'Training...' : 'Train Audio'}</button>
             <button onClick={() => { setExamples([]); setPredictions([]); modelRef.current?.dispose(); modelRef.current = null; }} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 text-sm font-semibold dark:border-gray-700"><RotateCcw size={14} /> Reset</button>
           </Card>

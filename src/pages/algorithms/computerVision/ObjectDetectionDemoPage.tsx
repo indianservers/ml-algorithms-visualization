@@ -6,6 +6,7 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
 import { MetricsPanel } from '../../../components/ml/MetricsPanel';
+import { stopMediaElementStream, stopMediaStream } from '../../../lib/media/streams';
 
 type Box = { x: number; y: number; w: number; h: number };
 type ClassItem = { id: string; name: string; color: string };
@@ -89,6 +90,7 @@ export default function ObjectDetectionDemoPage() {
   const liveTimerRef = useRef<number | null>(null);
   const modelRef = useRef<tf.LayersModel | null>(null);
   const extractorRef = useRef<mobilenet.MobileNet | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -120,8 +122,9 @@ export default function ObjectDetectionDemoPage() {
   useEffect(() => () => {
     if (liveTimerRef.current) window.clearInterval(liveTimerRef.current);
     modelRef.current?.dispose();
-    const stream = videoRef.current?.srcObject as MediaStream | null;
-    stream?.getTracks().forEach(track => track.stop());
+    stopMediaStream(streamRef.current);
+    streamRef.current = null;
+    stopMediaElementStream(videoRef.current);
   }, []);
 
   const ensureExtractor = async () => {
@@ -210,8 +213,13 @@ export default function ObjectDetectionDemoPage() {
   const startCamera = async () => {
     try {
       await ensureExtractor();
+      stopCamera(false);
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 360, facingMode: 'environment' }, audio: false });
-      if (!videoRef.current) return;
+      if (!videoRef.current) {
+        stopMediaStream(stream);
+        return;
+      }
+      streamRef.current = stream;
       videoRef.current.srcObject = stream;
       await videoRef.current.play();
       imageRef.current = null;
@@ -223,6 +231,17 @@ export default function ObjectDetectionDemoPage() {
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Unable to start camera.');
     }
+  };
+
+  const stopCamera = (updateStatus = true) => {
+    if (liveTimerRef.current) window.clearInterval(liveTimerRef.current);
+    liveTimerRef.current = null;
+    stopMediaStream(streamRef.current);
+    streamRef.current = null;
+    stopMediaElementStream(videoRef.current);
+    setCameraReady(false);
+    if (!imageRef.current) setSourceReady(false);
+    if (updateStatus) setStatus('Camera stopped. Imported images, labels, and trained model remain available.');
   };
 
   const captureFrame = () => {
@@ -492,6 +511,9 @@ export default function ObjectDetectionDemoPage() {
               <canvas ref={sourceCanvasRef} className="hidden" />
               <button onClick={startCamera} className="inline-flex w-full items-center justify-center gap-2 rounded bg-blue-600 px-3 py-2 font-semibold text-white">
                 <Camera size={14} /> {cameraReady ? 'Restart Camera' : 'Start Camera'}
+              </button>
+              <button onClick={() => stopCamera()} disabled={!cameraReady} className="inline-flex w-full items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 font-semibold disabled:opacity-50 dark:border-gray-700">
+                <Video size={14} /> Stop Camera
               </button>
               <button onClick={captureFrame} disabled={!cameraReady} className="inline-flex w-full items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 font-semibold disabled:opacity-50 dark:border-gray-700">
                 <Camera size={14} /> Capture Frame for Labeling

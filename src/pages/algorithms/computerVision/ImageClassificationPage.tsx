@@ -6,6 +6,7 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
 import { MetricsPanel } from '../../../components/ml/MetricsPanel';
+import { stopMediaElementStream, stopMediaStream } from '../../../lib/media/streams';
 
 type ClassItem = { id: string; name: string; color: string };
 type ExampleItem = { id: string; classId: string; data: Float32Array; preview: string };
@@ -79,6 +80,7 @@ export default function ImageClassificationPage() {
   const captureTimerRef = useRef<number | null>(null);
   const modelRef = useRef<tf.LayersModel | null>(null);
   const featureExtractorRef = useRef<mobilenet.MobileNet | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const captureBusyRef = useRef(false);
   const examplesRef = useRef<ExampleItem[]>([]);
 
@@ -103,8 +105,9 @@ export default function ImageClassificationPage() {
     if (captureTimerRef.current) window.clearInterval(captureTimerRef.current);
     if (predictTimerRef.current) window.clearInterval(predictTimerRef.current);
     modelRef.current?.dispose();
-    const stream = videoRef.current?.srcObject as MediaStream | null;
-    stream?.getTracks().forEach(track => track.stop());
+    stopMediaStream(streamRef.current);
+    streamRef.current = null;
+    stopMediaElementStream(videoRef.current);
   }, []);
 
   const sampleCounts = useMemo(() => Object.fromEntries(classes.map(item => [
@@ -129,11 +132,16 @@ export default function ImageClassificationPage() {
   const startCamera = async () => {
     try {
       await ensureFeatureExtractor();
+      stopCamera(false);
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: 'user' },
         audio: false,
       });
-      if (!videoRef.current) return;
+      if (!videoRef.current) {
+        stopMediaStream(stream);
+        return;
+      }
+      streamRef.current = stream;
       videoRef.current.srcObject = stream;
       await videoRef.current.play();
       setCameraReady(true);
@@ -141,6 +149,17 @@ export default function ImageClassificationPage() {
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Unable to start camera.');
     }
+  };
+
+  const stopCamera = (updateStatus = true) => {
+    stopCapture();
+    if (predictTimerRef.current) window.clearInterval(predictTimerRef.current);
+    predictTimerRef.current = null;
+    stopMediaStream(streamRef.current);
+    streamRef.current = null;
+    stopMediaElementStream(videoRef.current);
+    setCameraReady(false);
+    if (updateStatus) setStatus('Camera stopped. Samples and trained model are still available.');
   };
 
   const importFiles = async (classId: string, fileList: FileList | null) => {
@@ -389,6 +408,13 @@ export default function ImageClassificationPage() {
                 className="inline-flex w-full items-center justify-center gap-2 rounded bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 <Camera size={15} /> {cameraReady ? 'Camera Running' : 'Start Camera'}
+              </button>
+              <button
+                onClick={() => stopCamera()}
+                disabled={!cameraReady}
+                className="inline-flex w-full items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 text-sm font-semibold disabled:opacity-50 dark:border-gray-700"
+              >
+                <Video size={15} /> Stop Camera
               </button>
             </div>
           </Card>
