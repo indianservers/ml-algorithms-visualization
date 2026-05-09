@@ -3,10 +3,11 @@ import { useLocation, Link } from 'react-router-dom';
 import { Badge } from './Badge';
 import type { BadgeType } from '../../data/navigation';
 import { ChevronRight, Home } from 'lucide-react';
-import { getAllAlgorithms } from '../../data/implementationStatus';
+import { getAlgorithmByRoute, getAllAlgorithms } from '../../data/implementationStatus';
 import { getAlgorithmDatasetSuggestions } from '../../data/algorithmDatasets';
 import { LearningCompanion } from '../learning/LearningCompanion';
 import { AlgorithmDatasetLoader } from '../dataset/AlgorithmDatasetLoader';
+import { AlgorithmIntroduction } from '../learning/AlgorithmIntroduction';
 
 interface PageHeaderProps {
   title: string;
@@ -20,6 +21,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, badge, 
   const location = useLocation();
   const parts = location.pathname.split('/').filter(Boolean);
   const isAlgorithmRoute = location.pathname.startsWith('/ml/');
+  const currentAlgorithm = isAlgorithmRoute ? getAlgorithmByRoute(location.pathname) : undefined;
   const related = getAllAlgorithms()
     .filter(item => item.category === category && item.route !== location.pathname)
     .slice(0, 3);
@@ -58,6 +60,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, badge, 
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{category}</p>
           <p className="text-sm text-gray-600 dark:text-gray-300">{subtitle}</p>
+          {currentAlgorithm && <AlgorithmIntroduction algorithm={currentAlgorithm} />}
           {related.length > 0 && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Related</span>

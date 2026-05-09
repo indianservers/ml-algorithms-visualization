@@ -13,6 +13,7 @@ import {
 } from '../data/implementationStatus';
 import { Badge } from '../components/common/Badge';
 import { RouteSearchModal } from '../components/common/RouteSearchModal';
+import { AlgorithmFAQ } from '../components/learning/AlgorithmFAQ';
 
 const PageFallback = () => (
   <div className="mx-auto max-w-7xl space-y-4 p-4" aria-label="Loading algorithm page">
@@ -233,6 +234,7 @@ export const RootLayout: React.FC = () => {
           <RouteErrorBoundary key={location.pathname}>
             <Suspense fallback={<PageFallback />}>
               <Outlet />
+              {currentItem && <AlgorithmFAQ algorithm={currentItem} />}
             </Suspense>
           </RouteErrorBoundary>
         </main>
