@@ -8,6 +8,7 @@ import { getAlgorithmDatasetSuggestions } from '../../data/algorithmDatasets';
 import { LearningCompanion } from '../learning/LearningCompanion';
 import { AlgorithmDatasetLoader } from '../dataset/AlgorithmDatasetLoader';
 import { AlgorithmIntroduction } from '../learning/AlgorithmIntroduction';
+import { AlgorithmLearningConsole } from '../learning/AlgorithmLearningConsole';
 
 interface PageHeaderProps {
   title: string;
@@ -87,6 +88,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, badge, 
         <div className="mt-4 space-y-4">
           <LearningCompanion route={location.pathname} compact />
           <AlgorithmDatasetLoader route={location.pathname} category={category} />
+          <AlgorithmLearningConsole route={location.pathname} title={title} category={category} />
         </div>
       )}
     </div>

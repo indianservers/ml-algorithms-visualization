@@ -1,8 +1,8 @@
 import React, { Suspense } from 'react';
 import { Outlet, useLocation, Link } from 'react-router-dom';
 import { Sidebar } from '../components/common/Sidebar';
-import { useTheme, useSidebarState } from '../stores/uiStore';
-import { Sun, Moon, Menu, Search, Play, RotateCcw, StepForward, Save, Download, AlertTriangle, CheckCircle2, Info, ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { useTheme, useSidebarState, useTrainingMode } from '../stores/uiStore';
+import { Sun, Moon, Menu, Search, Play, RotateCcw, StepForward, Save, Download, AlertTriangle, CheckCircle2, Info, ChevronLeft, ChevronRight, Star, Database, Upload } from 'lucide-react';
 import {
   getAdjacentAlgorithms,
   getAlgorithmByRoute,
@@ -76,6 +76,7 @@ class RouteErrorBoundary extends React.Component<{ children: React.ReactNode }, 
 export const RootLayout: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { collapsed, toggle } = useSidebarState();
+  const { trainingMode, setTrainingMode } = useTrainingMode();
   const location = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
   const [routeSearchOpen, setRouteSearchOpen] = React.useState(false);
@@ -173,8 +174,59 @@ export const RootLayout: React.FC = () => {
               Search
               <kbd className="rounded border border-gray-200 px-1 text-[10px] dark:border-gray-600">Ctrl K</kbd>
             </button>
+            <Link
+              to="/ml/lab/dataset-manager"
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:border-blue-300 hover:bg-blue-100 dark:border-blue-900/70 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-900/40"
+              title="Open Dataset Manager to upload, edit, save, or load datasets"
+            >
+              <Database size={14} />
+              Dataset Manager
+              <Upload size={13} />
+            </Link>
+            {location.pathname.startsWith('/ml/') && (
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('ml:train'))}
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700"
+                title="Train the current page model"
+              >
+                <Play size={14} />
+                Train
+              </button>
+            )}
+            <div className="inline-flex min-h-10 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 p-1 text-xs font-bold dark:border-gray-700 dark:bg-gray-800" title="Choose whether pages train after data changes or wait for Train">
+              <button
+                onClick={() => setTrainingMode('manual')}
+                className={`rounded px-2.5 py-1.5 ${trainingMode === 'manual' ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-950 dark:text-white' : 'text-gray-500 dark:text-gray-300'}`}
+              >
+                Manual
+              </button>
+              <button
+                onClick={() => setTrainingMode('auto')}
+                className={`rounded px-2.5 py-1.5 ${trainingMode === 'auto' ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-950 dark:text-white' : 'text-gray-500 dark:text-gray-300'}`}
+              >
+                Auto
+              </button>
+            </div>
           </div>
           <div className="flex items-center gap-1.5">
+            <Link
+              to="/ml/lab/dataset-manager"
+              className="grid min-h-10 min-w-10 place-items-center rounded-lg text-blue-600 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/40 sm:hidden"
+              title="Dataset Manager"
+              aria-label="Open Dataset Manager"
+            >
+              <Database size={16} />
+            </Link>
+            {location.pathname.startsWith('/ml/') && (
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('ml:train'))}
+                className="grid min-h-10 min-w-10 place-items-center rounded-lg bg-blue-600 text-white hover:bg-blue-700 sm:hidden"
+                title="Train"
+                aria-label="Train current model"
+              >
+                <Play size={16} />
+              </button>
+            )}
             <button
               onClick={() => setRouteSearchOpen(true)}
               className="grid min-h-10 min-w-10 place-items-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 sm:hidden"
@@ -242,11 +294,6 @@ export const RootLayout: React.FC = () => {
                 </Link>
               )}
               <div className="flex w-full gap-1 overflow-x-auto pt-1 scrollbar-thin sm:w-auto sm:flex-wrap sm:overflow-visible sm:pt-0">
-                {algorithmStatus === 'Implemented' && ['data', 'controls', 'chart', 'metrics', 'export', 'save'].map(item => (
-                  <span key={item} className="hidden rounded bg-white/50 px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide dark:bg-gray-900/30 lg:inline">
-                    {item}
-                  </span>
-                ))}
                 {commandButtons.map(button => (
                   <button
                     key={button.event}

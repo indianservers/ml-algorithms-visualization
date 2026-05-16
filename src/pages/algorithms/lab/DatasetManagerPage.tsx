@@ -7,9 +7,11 @@ import { allSampleDatasets } from '../../../data/sampleDatasets';
 import { getAlgorithmSampleDatasets } from '../../../data/algorithmDatasets';
 import { getAllAlgorithms } from '../../../data/implementationStatus';
 import { deleteDataset, loadDatasets, saveDataset, SavedDataset } from '../../../stores/experimentStore';
+import { EditableDataGrid } from '../../../components/dataset/EditableDataGrid';
 
 type Row = Record<string, unknown>;
 const ACTIVE_DATASETS_KEY = 'mlSuite.activeAlgorithmDatasets';
+const DATASET_VERSION_KEY = 'mlSuite.datasetVersionHistory';
 
 function parseCSV(text: string): { columns: string[]; data: Row[] } {
   const lines = text.trim().split(/\r?\n/).filter(Boolean);
@@ -52,6 +54,7 @@ export default function DatasetManagerPage() {
   });
   const [message, setMessage] = useState('');
   const [activeDatasetId, setActiveDatasetId] = useState<string | null>(null);
+  const [savedSearch, setSavedSearch] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = async () => setSaved(await loadDatasets());
@@ -127,19 +130,33 @@ export default function DatasetManagerPage() {
   };
 
   const handleSave = async () => {
-    await saveDataset({
+    const dataset: SavedDataset = {
       id: `dataset_${Date.now()}`,
       name,
       columns: draft.columns,
       data: draft.data,
       tags: tags.split(',').map(tag => tag.trim()).filter(Boolean),
       savedAt: Date.now(),
-    });
+    };
+    await saveDataset(dataset);
+    const versions = JSON.parse(localStorage.getItem(DATASET_VERSION_KEY) ?? '[]') as Array<{ id: string; name: string; rows: number; columns: number; savedAt: number }>;
+    localStorage.setItem(DATASET_VERSION_KEY, JSON.stringify([{ id: dataset.id, name: dataset.name, rows: dataset.data.length, columns: dataset.columns.length, savedAt: dataset.savedAt }, ...versions].slice(0, 20)));
     setMessage('Dataset saved to IndexedDB');
     await refresh();
+    return dataset;
   };
 
-  const previewRows = draft.data.slice(0, 10);
+  const handleSaveAndLoad = async () => {
+    const dataset = await handleSave();
+    setActiveDataset(dataset, algorithmRoute);
+    setActiveDatasetId(dataset.id);
+    setMessage(`${dataset.name} saved and loaded for ${selectedAlgorithm.label}`);
+  };
+
+  const filteredSaved = saved.filter(dataset => {
+    const text = `${dataset.name} ${dataset.tags?.join(' ') ?? ''} ${dataset.columns.join(' ')}`.toLowerCase();
+    return text.includes(savedSearch.toLowerCase());
+  });
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4">
@@ -149,7 +166,13 @@ export default function DatasetManagerPage() {
         <div className="space-y-4">
           <Card title="Saved Datasets">
             <div className="space-y-2">
-              {saved.map(dataset => (
+              <input
+                value={savedSearch}
+                onChange={event => setSavedSearch(event.target.value)}
+                placeholder="Search saved datasets"
+                className="min-h-10 w-full rounded border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+              />
+              {filteredSaved.map(dataset => (
                 <button
                   key={dataset.id}
                   onClick={() => loadSavedDataset(dataset, true)}
@@ -169,6 +192,9 @@ export default function DatasetManagerPage() {
               {saved.length === 0 && (
                 <p className="text-sm text-gray-500">No saved datasets yet. Upload a CSV/JSON file or save one of the samples below.</p>
               )}
+              {saved.length > 0 && filteredSaved.length === 0 && (
+                <p className="text-sm text-gray-500">No saved datasets match this search.</p>
+              )}
             </div>
           </Card>
 
@@ -187,6 +213,9 @@ export default function DatasetManagerPage() {
                 <button onClick={() => fileRef.current?.click()} className="flex min-h-10 items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 dark:border-gray-700"><Upload size={14} /> Upload</button>
                 <button onClick={handleSave} className="min-h-10 rounded bg-blue-600 px-3 py-2 font-semibold text-white">Save</button>
               </div>
+              <button onClick={handleSaveAndLoad} className="flex min-h-10 w-full items-center justify-center gap-2 rounded bg-emerald-600 px-3 py-2 font-semibold text-white">
+                Save & Load for Selected Algorithm
+              </button>
               {message && <p className="text-xs text-green-600">{message}</p>}
             </div>
           </Card>
@@ -227,28 +256,19 @@ export default function DatasetManagerPage() {
             </div>
           </Card>
 
-          <Card title="Editable Preview Grid">
-            <div className="overflow-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr>{draft.columns.map(col => <th key={col} className="border border-gray-200 p-2 text-left dark:border-gray-700">{col}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {previewRows.map((row, rowIndex) => (
-                    <tr key={rowIndex}>
-                      {draft.columns.map(col => (
-                        <td key={col} className={`border border-gray-200 p-2 dark:border-gray-700 ${row[col] === null || row[col] === '' ? 'bg-red-50 text-red-700 dark:bg-red-900/20' : ''}`}>{String(row[col] ?? '')}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <Card title="Editable Data Grid">
+            <EditableDataGrid
+              columns={draft.columns}
+              rows={draft.data}
+              maxRows={draft.data.length}
+              onColumnsChange={columns => setDraft(previous => ({ ...previous, columns }))}
+              onChange={data => setDraft(previous => ({ ...previous, data }))}
+            />
           </Card>
 
           <Card title="Saved IndexedDB Datasets">
             <div className="space-y-2">
-              {saved.map(dataset => (
+              {filteredSaved.map(dataset => (
                 <div key={dataset.id} className="flex flex-col gap-3 rounded border border-gray-200 p-3 text-sm dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between">
                   <button onClick={() => loadSavedDataset(dataset)} className="min-w-0 text-left">
                     <p className="font-semibold">{dataset.name}</p>

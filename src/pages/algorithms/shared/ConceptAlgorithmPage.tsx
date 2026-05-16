@@ -15,6 +15,7 @@ import type { BadgeType } from '../../../data/navigation';
 import { allSampleDatasets, generateSyntheticBlobs } from '../../../data/sampleDatasets';
 import { getAlgorithmSampleDatasets } from '../../../data/algorithmDatasets';
 import { saveExperiment, generateExperimentId } from '../../../stores/experimentStore';
+import { useTrainingMode } from '../../../stores/uiStore';
 
 export interface AlgorithmModuleConfig {
   title: string;
@@ -96,6 +97,7 @@ function metricParts(metric: AlgorithmModuleConfig['metrics'][number]): MetricPa
 
 export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModuleConfig }) {
   const location = useLocation();
+  const { trainingMode } = useTrainingMode();
   const algorithmDatasets = useMemo(() => getAlgorithmSampleDatasets(location.pathname, config.category), [location.pathname, config.category]);
   const [datasetId, setDatasetId] = useState(algorithmDatasets[0]?.id ?? allSampleDatasets[0]?.id ?? 'synthetic');
   const [saved, setSaved] = useState(false);
@@ -108,6 +110,7 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
   const [uploadedRows, setUploadedRows] = useState<Array<Record<string, number>>>([]);
   const [uploadName, setUploadName] = useState('');
   const tfModelRef = useRef<tf.LayersModel | null>(null);
+  const autoTrainRunRef = useRef(0);
   const Icon = iconMap[config.icon ?? 'lab'];
   const maxIterations = 40;
   const progress = iteration / maxIterations;
@@ -366,6 +369,16 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
     };
   }, [handleSave, stepTraining]);
 
+  useEffect(() => {
+    if (trainingMode !== 'auto' || tfTraining || tfDataset.features.length < 6) return undefined;
+    const runId = autoTrainRunRef.current + 1;
+    autoTrainRunRef.current = runId;
+    const timer = window.setTimeout(() => {
+      if (autoTrainRunRef.current === runId) void trainTensorFlowModel();
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [datasetId, tfDataset.featureKeys.join('|'), tfDataset.targetKey, tfDataset.features.length, trainingMode, tfTraining]);
+
   const renderChart = () => {
     if (config.chartKind === 'heatmap') return <Matrix labels={config.chartLabels} />;
     if (config.chartKind === 'bar') {
@@ -464,6 +477,11 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
 
           <Card title="Training Controls" icon={<Play size={14} />}>
             <div className="space-y-3 text-xs">
+              <div className={`rounded border p-2 ${trainingMode === 'auto' ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100' : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100'}`}>
+                {trainingMode === 'auto'
+                  ? 'Auto Train is on. Dataset changes retrain this workbench.'
+                  : 'Manual Train is on. Load or edit data, then click Train.'}
+              </div>
               <div className="h-2 overflow-hidden rounded bg-gray-100 dark:bg-gray-900">
                 <div className="h-full bg-blue-600 transition-all" style={{ width: `${Math.round(progress * 100)}%` }} />
               </div>

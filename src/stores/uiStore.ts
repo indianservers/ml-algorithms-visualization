@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 
 type Theme = 'light' | 'dark';
+export type TrainingMode = 'manual' | 'auto';
 
 const THEME_KEY = 'ml-suite-theme';
 const SIDEBAR_KEY = 'ml-suite-sidebar-collapsed';
+const TRAINING_MODE_KEY = 'ml-suite-training-mode';
 
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
@@ -35,4 +37,18 @@ export function useSidebarState() {
   }, []);
 
   return { collapsed, toggle };
+}
+
+export function useTrainingMode() {
+  const [trainingMode, setTrainingModeState] = useState<TrainingMode>(() => {
+    return (localStorage.getItem(TRAINING_MODE_KEY) as TrainingMode | null) ?? 'manual';
+  });
+
+  const setTrainingMode = useCallback((mode: TrainingMode) => {
+    setTrainingModeState(mode);
+    localStorage.setItem(TRAINING_MODE_KEY, mode);
+    window.dispatchEvent(new CustomEvent('ml:training-mode-changed', { detail: { mode } }));
+  }, []);
+
+  return { trainingMode, setTrainingMode };
 }

@@ -5,12 +5,14 @@ import type { DataRow } from '../../lib/preprocessing/dataProfile';
 interface EditableDataGridProps {
   rows: DataRow[];
   onChange: (rows: DataRow[]) => void;
+  columns?: string[];
+  onColumnsChange?: (columns: string[]) => void;
   maxRows?: number;
 }
 
-export function EditableDataGrid({ rows, onChange, maxRows = 12 }: EditableDataGridProps) {
+export function EditableDataGrid({ rows, onChange, columns: providedColumns, onColumnsChange, maxRows = 12 }: EditableDataGridProps) {
   const [history, setHistory] = React.useState<DataRow[][]>([]);
-  const columns = Array.from(new Set(rows.flatMap(row => Object.keys(row))));
+  const columns = providedColumns?.length ? providedColumns : Array.from(new Set(rows.flatMap(row => Object.keys(row))));
 
   const update = (next: DataRow[]) => {
     setHistory(previous => [rows, ...previous].slice(0, 20));
@@ -21,11 +23,15 @@ export function EditableDataGrid({ rows, onChange, maxRows = 12 }: EditableDataG
   const updateCell = (rowIndex: number, column: string, value: string) => update(rows.map((row, index) => index === rowIndex ? { ...row, [column]: Number.isFinite(Number(value)) && value.trim() !== '' ? Number(value) : value } : row));
   const renameColumn = (oldName: string, newName: string) => {
     if (!newName.trim() || oldName === newName) return;
-    update(rows.map(row => {
+    const nextColumns = columns.map(column => column === oldName ? newName : column);
+    const nextRows = rows.map(row => {
       const next: DataRow = {};
       Object.entries(row).forEach(([key, value]) => { next[key === oldName ? newName : key] = value; });
       return next;
-    }));
+    });
+    setHistory(previous => [rows, ...previous].slice(0, 20));
+    onColumnsChange?.(nextColumns);
+    onChange(nextRows);
   };
   const downloadCsv = () => {
     const body = [columns.join(','), ...rows.map(row => columns.map(column => JSON.stringify(row[column] ?? '')).join(','))].join('\n');
