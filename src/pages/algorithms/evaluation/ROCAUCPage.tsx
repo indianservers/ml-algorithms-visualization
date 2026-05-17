@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer,
+  ResponsiveContainer, Legend, ReferenceArea,
 } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
+import { useChartPalette, themedTooltipProps, useRechartsZoom, useSeriesVisibility } from '../../../components/common/chartUtils';
 import { rocCurve } from '../../../lib/math/metrics';
 import { loanDataset } from '../../../data/sampleDatasets';
 
@@ -65,6 +66,11 @@ const AUC_GUIDE = [
 export default function ROCAUCPage() {
   const [threshold, setThreshold] = useState(0.5);
   const [showComparison, setShowComparison] = useState(false);
+  const palette = useChartPalette();
+  const primaryZoom = useRechartsZoom();
+  const comparisonZoom = useRechartsZoom();
+  const primarySeries = useSeriesVisibility(['diagonal', 'tpr']);
+  const comparisonSeries = useSeriesVisibility(['diagonal', 'good', 'medium', 'bad']);
 
   // ── Primary ROC (Loan dataset) ───────────────────────────────────────────
   const loanRoc = useMemo(() => rocCurve(LOAN_ACTUAL, LOAN_SCORES), []);
@@ -131,13 +137,13 @@ export default function ROCAUCPage() {
   const diagonal = [{ fpr: 0, diagonal: 0 }, { fpr: 1, diagonal: 1 }];
 
   // ── Custom dot for operating point ──────────────────────────────────────
-  const OpDot = (props: { cx?: number; cy?: number; fpr?: number; tpr?: number }) => {
-    const { cx, cy } = props;
+  const OpDot = (props: { cx?: number; cy?: number; payload?: { fpr?: number; tpr?: number } }) => {
+    const { cx, cy, payload } = props;
     if (cx === undefined || cy === undefined) return null;
-    const isOp = Math.abs((props.fpr ?? -1) - operatingPoint.fpr) < 0.015
-              && Math.abs((props.tpr ?? -1) - operatingPoint.tpr) < 0.015;
+    const isOp = Math.abs((payload?.fpr ?? -1) - operatingPoint.fpr) < 0.015
+              && Math.abs((payload?.tpr ?? -1) - operatingPoint.tpr) < 0.015;
     if (!isOp) return null;
-    return <circle cx={cx} cy={cy} r={7} fill="#ef4444" stroke="white" strokeWidth={2} />;
+    return <circle cx={cx} cy={cy} r={7} fill={palette.series[2]} stroke={palette.surface} strokeWidth={2} />;
   };
 
   return (
@@ -195,33 +201,49 @@ export default function ROCAUCPage() {
             </div>
 
             <ResponsiveContainer width="100%" height={320}>
-              <LineChart margin={{ top: 5, right: 20, bottom: 20, left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <LineChart
+                data={primaryData}
+                margin={{ top: 5, right: 20, bottom: 20, left: 10 }}
+                onMouseDown={primaryZoom.mouseDown}
+                onMouseMove={primaryZoom.mouseMove}
+                onMouseUp={primaryZoom.mouseUp}
+                onDoubleClick={primaryZoom.resetZoom}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} />
                 <XAxis
-                  dataKey="fpr" type="number" domain={[0, 1]}
-                  label={{ value: 'FPR (1 - Specificity)', position: 'insideBottom', offset: -12, fontSize: 11 }}
-                  tickFormatter={v => v.toFixed(1)} fontSize={11}
+                  dataKey="fpr" type="number" domain={primaryZoom.xDomain ?? [0, 1]}
+                  label={{ value: 'FPR (1 - Specificity)', position: 'insideBottom', offset: -12, fontSize: 11, fill: palette.axis }}
+                  tickFormatter={v => v.toFixed(1)} fontSize={11} tick={{ fill: palette.axis }} stroke={palette.axis}
                 />
                 <YAxis
                   dataKey="tpr" type="number" domain={[0, 1]}
-                  label={{ value: 'TPR (Recall)', angle: -90, position: 'insideLeft', offset: 5, fontSize: 11 }}
-                  tickFormatter={v => v.toFixed(1)} fontSize={11}
+                  label={{ value: 'TPR (Recall)', angle: -90, position: 'insideLeft', offset: 5, fontSize: 11, fill: palette.axis }}
+                  tickFormatter={v => v.toFixed(1)} fontSize={11} tick={{ fill: palette.axis }} stroke={palette.axis}
                 />
                 <Tooltip
+                  {...themedTooltipProps(palette)}
                   formatter={(v: number, name: string) => [`${(v * 100).toFixed(1)}%`, name.toUpperCase()]}
                   labelFormatter={v => `FPR: ${(Number(v) * 100).toFixed(1)}%`}
                 />
+                <Legend onClick={primarySeries.legendClick} wrapperStyle={{ color: palette.axis, cursor: 'pointer' }} />
 
                 {/* Diagonal reference */}
-                <Line data={diagonal} dataKey="diagonal" dot={false} stroke="#9ca3af"
-                  strokeDasharray="6 4" strokeWidth={1.5} name="Random (diagonal)" />
+                {!primarySeries.hidden.has('diagonal') && (
+                  <Line data={diagonal} dataKey="diagonal" dot={false} stroke={palette.axis}
+                    strokeDasharray="6 4" strokeWidth={1.5} name="Random (diagonal)" />
+                )}
 
                 {/* ROC curve */}
-                <Line
-                  data={primaryData} dataKey="tpr" dot={(p) => <OpDot {...p} />}
-                  stroke="#3b82f6" strokeWidth={2.5} name="Loan Classifier"
-                  activeDot={{ r: 5, fill: '#3b82f6' }}
-                />
+                {!primarySeries.hidden.has('tpr') && (
+                  <Line
+                    dataKey="tpr" dot={(p) => <OpDot {...p} />}
+                    stroke={palette.series[0]} strokeWidth={2.5} name="Loan Classifier"
+                    activeDot={{ r: 5, fill: palette.series[0] }}
+                  />
+                )}
+                {primaryZoom.refAreaLeft !== null && primaryZoom.refAreaRight !== null && (
+                  <ReferenceArea x1={primaryZoom.refAreaLeft} x2={primaryZoom.refAreaRight} strokeOpacity={0.3} fill={palette.series[0]} fillOpacity={0.12} />
+                )}
               </LineChart>
             </ResponsiveContainer>
 
@@ -284,10 +306,10 @@ export default function ROCAUCPage() {
           <div>
             <div className="flex gap-4 mb-3 flex-wrap text-xs">
               {[
-                { label: `Good Classifier   AUC=${goodRoc.auc.toFixed(3)}`,   color: '#22c55e' },
-                { label: `Medium Classifier AUC=${mediumRoc.auc.toFixed(3)}`, color: '#f59e0b' },
-                { label: `Bad Classifier    AUC=${badRoc.auc.toFixed(3)}`,    color: '#ef4444' },
-                { label: 'Random Baseline',                                     color: '#9ca3af' },
+                { label: `Good Classifier   AUC=${goodRoc.auc.toFixed(3)}`,   color: palette.series[1] },
+                { label: `Medium Classifier AUC=${mediumRoc.auc.toFixed(3)}`, color: palette.series[4] },
+                { label: `Bad Classifier    AUC=${badRoc.auc.toFixed(3)}`,    color: palette.series[2] },
+                { label: 'Random Baseline',                                  color: palette.axis },
               ].map(({ label, color }) => (
                 <span key={label} className="flex items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
                   <span className="inline-block w-4 h-0.5 rounded" style={{ backgroundColor: color }} />
@@ -296,21 +318,32 @@ export default function ROCAUCPage() {
               ))}
             </div>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={comparisonData} margin={{ top: 5, right: 20, bottom: 20, left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="fpr" type="number" domain={[0, 1]}
-                  label={{ value: 'FPR', position: 'insideBottom', offset: -12, fontSize: 11 }}
-                  tickFormatter={v => v.toFixed(1)} fontSize={11}
+              <LineChart
+                data={comparisonData}
+                margin={{ top: 5, right: 20, bottom: 20, left: 10 }}
+                onMouseDown={comparisonZoom.mouseDown}
+                onMouseMove={comparisonZoom.mouseMove}
+                onMouseUp={comparisonZoom.mouseUp}
+                onDoubleClick={comparisonZoom.resetZoom}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} />
+                <XAxis dataKey="fpr" type="number" domain={comparisonZoom.xDomain ?? [0, 1]}
+                  label={{ value: 'FPR', position: 'insideBottom', offset: -12, fontSize: 11, fill: palette.axis }}
+                  tickFormatter={v => v.toFixed(1)} fontSize={11} tick={{ fill: palette.axis }} stroke={palette.axis}
                 />
                 <YAxis domain={[0, 1]}
-                  label={{ value: 'TPR', angle: -90, position: 'insideLeft', fontSize: 11 }}
-                  tickFormatter={v => v.toFixed(1)} fontSize={11}
+                  label={{ value: 'TPR', angle: -90, position: 'insideLeft', fontSize: 11, fill: palette.axis }}
+                  tickFormatter={v => v.toFixed(1)} fontSize={11} tick={{ fill: palette.axis }} stroke={palette.axis}
                 />
-                <Tooltip formatter={(v: number) => [`${(v * 100).toFixed(1)}%`]} />
-                <Line data={diagonal} dataKey="diagonal" dot={false} stroke="#9ca3af" strokeDasharray="6 4" strokeWidth={1} name="Random" />
-                <Line dataKey="good"   dot={false} stroke="#22c55e" strokeWidth={2.5} name="Good"   />
-                <Line dataKey="medium" dot={false} stroke="#f59e0b" strokeWidth={2.5} name="Medium" />
-                <Line dataKey="bad"    dot={false} stroke="#ef4444" strokeWidth={2}   name="Bad"    />
+                <Tooltip {...themedTooltipProps(palette)} formatter={(v: number) => [`${(v * 100).toFixed(1)}%`]} />
+                <Legend onClick={comparisonSeries.legendClick} wrapperStyle={{ color: palette.axis, cursor: 'pointer' }} />
+                {!comparisonSeries.hidden.has('diagonal') && <Line data={diagonal} dataKey="diagonal" dot={false} stroke={palette.axis} strokeDasharray="6 4" strokeWidth={1} name="Random" />}
+                {!comparisonSeries.hidden.has('good') && <Line dataKey="good" dot={false} stroke={palette.series[1]} strokeWidth={2.5} name="Good" />}
+                {!comparisonSeries.hidden.has('medium') && <Line dataKey="medium" dot={false} stroke={palette.series[4]} strokeWidth={2.5} name="Medium" />}
+                {!comparisonSeries.hidden.has('bad') && <Line dataKey="bad" dot={false} stroke={palette.series[2]} strokeWidth={2} name="Bad" />}
+                {comparisonZoom.refAreaLeft !== null && comparisonZoom.refAreaRight !== null && (
+                  <ReferenceArea x1={comparisonZoom.refAreaLeft} x2={comparisonZoom.refAreaRight} strokeOpacity={0.3} fill={palette.series[0]} fillOpacity={0.12} />
+                )}
               </LineChart>
             </ResponsiveContainer>
           </div>

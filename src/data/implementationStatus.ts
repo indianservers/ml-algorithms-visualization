@@ -10,6 +10,10 @@ export type AlgorithmNavItem = {
   categoryIndex: number;
   itemIndex: number;
 };
+export type AlgorithmVisit = {
+  route: string;
+  visitedAt: number;
+};
 
 const implementedRoutes = new Set([
   '/ml/supervised/simple-linear-regression',
@@ -188,11 +192,35 @@ export function rememberRoute(route: string) {
   const current = JSON.parse(localStorage.getItem('recentAlgorithms') ?? '[]') as string[];
   const next = [route, ...current.filter(item => item !== route)].slice(0, 8);
   localStorage.setItem('recentAlgorithms', JSON.stringify(next));
+  const visits = JSON.parse(localStorage.getItem('algorithmVisitHistory') ?? '[]') as AlgorithmVisit[];
+  localStorage.setItem('algorithmVisitHistory', JSON.stringify([{ route, visitedAt: Date.now() }, ...visits].slice(0, 500)));
+  window.dispatchEvent(new CustomEvent('ml:algorithm-visited'));
 }
 
 export function getRecentRoutes() {
   if (typeof localStorage === 'undefined') return [];
   return JSON.parse(localStorage.getItem('recentAlgorithms') ?? '[]') as string[];
+}
+
+export function getAlgorithmVisitStats() {
+  if (typeof localStorage === 'undefined') return { visitedCount: 0, streakDays: 0 };
+  let visits: AlgorithmVisit[];
+  try {
+    visits = JSON.parse(localStorage.getItem('algorithmVisitHistory') ?? '[]') as AlgorithmVisit[];
+  } catch {
+    visits = [];
+  }
+  const routeSet = new Set(visits.map(visit => visit.route));
+  const daySet = new Set(visits.map(visit => new Date(visit.visitedAt).toDateString()));
+  const today = new Date();
+  let streakDays = 0;
+  for (let offset = 0; offset < 365; offset += 1) {
+    const day = new Date(today);
+    day.setDate(today.getDate() - offset);
+    if (!daySet.has(day.toDateString())) break;
+    streakDays += 1;
+  }
+  return { visitedCount: routeSet.size, streakDays };
 }
 
 const FAVORITES_KEY = 'favoriteAlgorithms';

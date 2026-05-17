@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { navigationData } from '../../data/navigation';
 import { Badge } from './Badge';
 import type { BadgeType } from '../../data/navigation';
+import { useSidebarCategoryState } from '../../stores/uiStore';
 import {
   getAllAlgorithms,
   getCategoryProgress,
@@ -45,17 +46,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigat
   const [favoriteRoutes, setFavoriteRoutes] = useState<string[]>(() => getFavoriteRoutes());
   const [recentRoutes, setRecentRoutes] = useState<string[]>(() => getRecentRoutes());
   const [recentOpen, setRecentOpen] = useState(() => localStorage.getItem('ml-suite-recent-open') !== 'false');
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem('ml-suite-expanded-categories');
-    if (saved) return new Set(JSON.parse(saved) as string[]);
-    const initial = new Set<string>();
-    navigationData.forEach(cat => {
-      if (cat.items.some(item => location.pathname.startsWith(item.route))) {
-        initial.add(cat.category);
-      }
-    });
-    return initial;
-  });
+  const initialExpandedCategories = useMemo(() => navigationData
+    .filter(cat => cat.items.some(item => location.pathname.startsWith(item.route)))
+    .map(cat => cat.category), [location.pathname]);
+  const { expandedCategories, toggleCategory, expandCategory } = useSidebarCategoryState(initialExpandedCategories);
 
   const allAlgorithms = useMemo(() => getAllAlgorithms(), []);
   const favoriteItems = favoriteRoutes
@@ -67,6 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigat
     .filter(Boolean)
     .slice(0, 5);
   const filtersActive = search.trim() || statusFilter !== 'All' || badgeFilter !== 'All';
+  const stageLevels = ['Beginner', 'Intermediate', 'Advanced'];
 
   React.useEffect(() => {
     const refresh = () => {
@@ -85,10 +80,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigat
     const id = window.setTimeout(() => setRecentRoutes(getRecentRoutes()), 0);
     return () => window.clearTimeout(id);
   }, [location.pathname]);
-
-  React.useEffect(() => {
-    localStorage.setItem('ml-suite-expanded-categories', JSON.stringify([...expandedCategories]));
-  }, [expandedCategories]);
 
   React.useEffect(() => {
     localStorage.setItem('ml-suite-recent-open', String(recentOpen));
@@ -110,15 +101,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigat
       .filter(cat => cat.items.length > 0);
   }, [search, statusFilter, badgeFilter]);
 
-  const toggleCategory = (cat: string) => {
-    setExpandedCategories(prev => {
-      const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat);
-      else next.add(cat);
-      return next;
-    });
-  };
-
   if (collapsed) {
     return (
       <div className="h-full min-h-0 w-14 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center overflow-y-auto py-4 gap-4 shrink-0">
@@ -134,7 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigat
             key={cat.category}
             onClick={() => {
               onToggle();
-              setExpandedCategories(prev => new Set(prev).add(cat.category));
+              expandCategory(cat.category);
               navigate(cat.items[0]?.route ?? '/');
             }}
             className="grid min-h-10 min-w-10 place-items-center rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -182,6 +164,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigat
         <div className="grid grid-cols-2 gap-2 mt-2">
           <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)} className="min-h-10 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
             <option>All</option>
+            <option>Implemented</option>
             <option>Educational</option>
             <option>Concept</option>
             <option>Scaffold</option>
@@ -194,6 +177,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigat
             <option>Browser Trainable</option>
             <option>Browser Inference</option>
           </select>
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800">
+          {stageLevels.map(level => (
+            <button
+              key={level}
+              onClick={() => setBadgeFilter(filter => filter === level ? 'All' : level)}
+              className={`min-h-9 rounded-md px-1.5 text-[11px] font-bold transition-colors ${badgeFilter === level ? 'bg-white text-blue-700 shadow-sm dark:bg-gray-950 dark:text-blue-300' : 'text-gray-500 hover:bg-white/70 dark:text-gray-300 dark:hover:bg-gray-700'}`}
+              aria-pressed={badgeFilter === level}
+            >
+              {level}
+            </button>
+          ))}
         </div>
         {filtersActive && (
           <button

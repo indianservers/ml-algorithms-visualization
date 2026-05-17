@@ -8,13 +8,77 @@
   body { margin: 0; overflow-x: hidden; font-family: system-ui, -apple-system, sans-serif; }
   #root { width: 100%; height: 100vh; overflow: hidden; display: flex; }
   button, a, input, select, textarea { touch-action: manipulation; }
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+  }
   img, canvas, svg, video { max-width: 100%; }
+  .teacher-mode body { font-size: 18px; }
+  .teacher-mode .text-xs { font-size: 0.875rem; line-height: 1.35rem; }
+  .teacher-mode .text-sm { font-size: 1rem; line-height: 1.55rem; }
+  .practice-mode [data-learning-explanation] { display: none !important; }
 }
 
 @layer utilities {
   .font-mono-code { font-family: 'JetBrains Mono', Consolas, monospace; }
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.55), transparent);
+    animation: shimmer 1.35s infinite;
+  }
+  .dark .shimmer::after { background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.12), transparent); }
+  @keyframes shimmer {
+    100% { transform: translateX(100%); }
+  }
+  .result-change {
+    animation: result-change-flash 650ms ease-out;
+  }
+  @keyframes result-change-flash {
+    0% { box-shadow: inset 0 0 0 999px rgb(37 99 235 / 0.11); transform: translateY(-1px); }
+    100% { box-shadow: inset 0 0 0 0 rgb(37 99 235 / 0); transform: translateY(0); }
+  }
+  .step-current-pulse {
+    animation: step-current-pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes step-current-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgb(37 99 235 / 0.35); }
+    50% { box-shadow: 0 0 0 8px rgb(37 99 235 / 0); }
+  }
+  .step-current-highlight {
+    animation: step-current-highlight 900ms ease-out;
+  }
+  @keyframes step-current-highlight {
+    0% { transform: translateX(-2px); }
+    100% { transform: translateX(0); }
+  }
   .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
   .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
   .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
   .dark .scrollbar-thin::-webkit-scrollbar-thumb { background: #475569; }
+  .quiz-confetti {
+    position: absolute;
+    top: 18px;
+    width: 7px;
+    height: 12px;
+    border-radius: 2px;
+    animation: quiz-confetti-burst 900ms ease-out forwards;
+  }
+  @keyframes quiz-confetti-burst {
+    0% { opacity: 0; transform: translate3d(0, 0, 0) rotate(0deg) scale(0.8); }
+    15% { opacity: 1; }
+    100% { opacity: 0; transform: translate3d(var(--burst-x, 0), 190px, 0) rotate(260deg) scale(1); }
+  }
+}
+
+@media print {
+  .practice-mode [data-learning-explanation] { display: block !important; }
+  nav, aside, button, [role="dialog"] { print-color-adjust: exact; }
+  body { background: white !important; color: black !important; }
 }

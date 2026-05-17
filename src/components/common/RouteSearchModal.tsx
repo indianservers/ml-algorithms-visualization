@@ -58,15 +58,15 @@ export const RouteSearchModal: React.FC<RouteSearchModalProps> = ({ open, onClos
   if (!open) return null;
 
   const normalized = query.trim().toLowerCase();
-  const routes = navigationData.flatMap(category =>
-    category.items.map(item => {
+  const routes = navigationData.flatMap((category, categoryIndex) =>
+    category.items.map((item, itemIndex) => {
       const status = getImplementationStatus(item.route);
       const routeTerms = item.route.replaceAll('/', ' ').replaceAll('-', ' ');
       const keywordTerms = Object.entries(formulaKeywords)
         .filter(([key]) => item.route.includes(key) || item.label.toLowerCase().includes(key))
         .map(([, terms]) => terms)
         .join(' ');
-      return { ...item, category: category.category, status, searchable: `${item.label} ${item.badge} ${status} ${category.category} ${routeTerms} ${keywordTerms}`.toLowerCase() };
+      return { ...item, category: category.category, categoryIndex, itemIndex, status, searchable: `${item.label} ${item.badge} ${status} ${category.category} ${routeTerms} ${keywordTerms}`.toLowerCase() };
     })
   );
   const results = routes
@@ -122,6 +122,7 @@ export const RouteSearchModal: React.FC<RouteSearchModalProps> = ({ open, onClos
             className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
           >
             <option>All</option>
+            <option>Implemented</option>
             <option>Educational</option>
             <option>Concept</option>
             <option>Scaffold</option>
@@ -155,11 +156,17 @@ export const RouteSearchModal: React.FC<RouteSearchModalProps> = ({ open, onClos
             >
               <span className="min-w-0">
                 <span className="block truncate font-semibold text-gray-900 dark:text-gray-100">{item.label}</span>
-                <span className="block truncate font-mono text-[11px] text-gray-500 dark:text-gray-400">{item.category} / {item.route}</span>
+                <span className="block truncate font-mono text-[11px] text-gray-500 dark:text-gray-400">{item.route}</span>
+                <span className="mt-1 flex flex-wrap gap-1">
+                  <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                    {item.category}
+                  </span>
+                  <Badge type={item.status} />
+                  <Badge type={item.badge} />
+                </span>
               </span>
-              <span className="flex shrink-0 items-center gap-1">
-                {item.status !== 'Implemented' && <Badge type={item.status} />}
-                <Badge type={item.badge} />
+              <span className="hidden shrink-0 items-center text-gray-400 sm:flex">
+                <span className="font-mono text-[11px]">{item.categoryIndex + 1}.{item.itemIndex + 1}</span>
               </span>
             </Link>
           ))}

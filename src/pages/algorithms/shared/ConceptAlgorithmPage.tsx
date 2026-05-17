@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import {
   Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer,
-  Scatter, ScatterChart, Tooltip, XAxis, YAxis,
+  Scatter, ScatterChart, Tooltip, XAxis, YAxis, Legend, ReferenceArea,
 } from 'recharts';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
@@ -15,7 +15,8 @@ import type { BadgeType } from '../../../data/navigation';
 import { allSampleDatasets, generateSyntheticBlobs } from '../../../data/sampleDatasets';
 import { getAlgorithmSampleDatasets } from '../../../data/algorithmDatasets';
 import { saveExperiment, generateExperimentId } from '../../../stores/experimentStore';
-import { useTrainingMode } from '../../../stores/uiStore';
+import { useTrainingMode, useTrainingSpeed } from '../../../stores/uiStore';
+import { themedTooltipProps, useChartPalette, useRechartsZoom, useSeriesVisibility } from '../../../components/common/chartUtils';
 
 export interface AlgorithmModuleConfig {
   title: string;
@@ -98,6 +99,10 @@ function metricParts(metric: AlgorithmModuleConfig['metrics'][number]): MetricPa
 export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModuleConfig }) {
   const location = useLocation();
   const { trainingMode } = useTrainingMode();
+  const { trainingSpeed } = useTrainingSpeed();
+  const palette = useChartPalette();
+  const zoom = useRechartsZoom();
+  const { hidden, legendClick } = useSeriesVisibility(['score', 'value', 'fitted', 'sales', 'anomaly']);
   const algorithmDatasets = useMemo(() => getAlgorithmSampleDatasets(location.pathname, config.category), [location.pathname, config.category]);
   const [datasetId, setDatasetId] = useState(algorithmDatasets[0]?.id ?? allSampleDatasets[0]?.id ?? 'synthetic');
   const [saved, setSaved] = useState(false);
@@ -114,6 +119,7 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
   const Icon = iconMap[config.icon ?? 'lab'];
   const maxIterations = 40;
   const progress = iteration / maxIterations;
+  const speedDelay = trainingSpeed === 'slow' ? 850 : trainingSpeed === 'fast' ? 180 : 450;
   const isClassificationLike = /class|cluster|nlp|vision|detect|recommend|bandit|rl|ensemble|tree|bayes|svm|xgboost|boost/i.test(`${config.title} ${config.category}`);
   const chartData = useMemo(() => generateSyntheticBlobs(48, 3).map((point, i) => ({
     ...point,
@@ -189,9 +195,9 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
 
   useEffect(() => {
     if (!isTraining) return undefined;
-    const timer = window.setInterval(stepTraining, 450);
+    const timer = window.setInterval(stepTraining, speedDelay);
     return () => window.clearInterval(timer);
-  }, [isTraining, stepTraining]);
+  }, [isTraining, speedDelay, stepTraining]);
 
   useEffect(() => () => {
     tfModelRef.current?.dispose();
@@ -375,9 +381,9 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
     autoTrainRunRef.current = runId;
     const timer = window.setTimeout(() => {
       if (autoTrainRunRef.current === runId) void trainTensorFlowModel();
-    }, 500);
+    }, speedDelay);
     return () => window.clearTimeout(timer);
-  }, [datasetId, tfDataset.featureKeys.join('|'), tfDataset.targetKey, tfDataset.features.length, trainingMode, tfTraining]);
+  }, [datasetId, tfDataset.featureKeys.join('|'), tfDataset.targetKey, tfDataset.features.length, trainingMode, speedDelay, tfTraining]);
 
   const renderChart = () => {
     if (config.chartKind === 'heatmap') return <Matrix labels={config.chartLabels} />;
@@ -385,13 +391,16 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
       return (
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={config.chartLabels.map((label, i) => ({ label, value: Math.round(20 + i * 9 + progress * 35) }))}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} />
-            <Tooltip />
-            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-              {config.chartLabels.map((_, i) => <Cell key={i} fill={['#2563eb', '#059669', '#dc2626', '#9333ea', '#ea580c'][i % 5]} />)}
-            </Bar>
+            <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: palette.axis }} stroke={palette.axis} />
+            <YAxis tick={{ fontSize: 11, fill: palette.axis }} stroke={palette.axis} />
+            <Tooltip {...themedTooltipProps(palette)} />
+            <Legend onClick={legendClick} wrapperStyle={{ color: palette.axis, cursor: 'pointer' }} />
+            {!hidden.has('value') && (
+              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                {config.chartLabels.map((_, i) => <Cell key={i} fill={palette.series[i % palette.series.length]} />)}
+              </Bar>
+            )}
           </BarChart>
         </ResponsiveContainer>
       );
@@ -399,26 +408,33 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
     if (config.chartKind === 'line') {
       return (
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="step" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} />
-            <Tooltip />
-            <Line type="monotone" dataKey="score" stroke="#2563eb" strokeWidth={2} dot={false} />
+          <LineChart data={chartData} onMouseDown={zoom.mouseDown} onMouseMove={zoom.mouseMove} onMouseUp={zoom.mouseUp} onDoubleClick={zoom.resetZoom}>
+            <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} />
+            <XAxis dataKey="step" type="number" domain={zoom.xDomain ?? ['dataMin', 'dataMax']} allowDataOverflow tick={{ fontSize: 11, fill: palette.axis }} stroke={palette.axis} />
+            <YAxis tick={{ fontSize: 11, fill: palette.axis }} stroke={palette.axis} />
+            <Tooltip {...themedTooltipProps(palette)} />
+            <Legend onClick={legendClick} wrapperStyle={{ color: palette.axis, cursor: 'pointer' }} />
+            {!hidden.has('score') && <Line type="monotone" dataKey="score" stroke={palette.series[0]} strokeWidth={2} dot={false} />}
+            {zoom.refAreaLeft !== null && zoom.refAreaRight !== null && (
+              <ReferenceArea x1={zoom.refAreaLeft} x2={zoom.refAreaRight} strokeOpacity={0.3} fill={palette.series[0]} fillOpacity={0.12} />
+            )}
           </LineChart>
         </ResponsiveContainer>
       );
     }
     return (
       <ResponsiveContainer width="100%" height={280}>
-        <ScatterChart>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="x" tick={{ fontSize: 11 }} />
-          <YAxis dataKey="y" tick={{ fontSize: 11 }} />
-          <Tooltip />
+        <ScatterChart onMouseDown={zoom.mouseDown} onMouseMove={zoom.mouseMove} onMouseUp={zoom.mouseUp} onDoubleClick={zoom.resetZoom}>
+          <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} />
+          <XAxis dataKey="x" type="number" domain={zoom.xDomain ?? ['dataMin', 'dataMax']} allowDataOverflow tick={{ fontSize: 11, fill: palette.axis }} stroke={palette.axis} />
+          <YAxis dataKey="y" type="number" tick={{ fontSize: 11, fill: palette.axis }} stroke={palette.axis} />
+          <Tooltip {...themedTooltipProps(palette)} />
           <Scatter data={chartData} fill="#2563eb">
-            {chartData.map((point, i) => <Cell key={i} fill={['#2563eb', '#059669', '#dc2626'][point.label]} />)}
+            {chartData.map((point, i) => <Cell key={i} fill={palette.series[point.label % palette.series.length]} />)}
           </Scatter>
+          {zoom.refAreaLeft !== null && zoom.refAreaRight !== null && (
+            <ReferenceArea x1={zoom.refAreaLeft} x2={zoom.refAreaRight} strokeOpacity={0.3} fill={palette.series[0]} fillOpacity={0.12} />
+          )}
         </ScatterChart>
       </ResponsiveContainer>
     );

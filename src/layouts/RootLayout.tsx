@@ -1,10 +1,12 @@
 import React, { Suspense } from 'react';
 import { Outlet, useLocation, Link } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Sidebar } from '../components/common/Sidebar';
-import { useTheme, useSidebarState, useTrainingMode } from '../stores/uiStore';
-import { Sun, Moon, Menu, Search, Play, RotateCcw, StepForward, Save, Download, AlertTriangle, CheckCircle2, Info, ChevronLeft, ChevronRight, Star, Database, Upload } from 'lucide-react';
+import { useTheme, useSidebarState, useTrainingMode, useTrainingSpeed, usePracticeMode, useTeacherMode } from '../stores/uiStore';
+import { Sun, Moon, Menu, Search, Play, RotateCcw, StepForward, Save, Download, AlertTriangle, CheckCircle2, Info, ChevronLeft, ChevronRight, Star, Database, Upload, HelpCircle, X, Pencil, Flame, EyeOff, Type, Printer } from 'lucide-react';
 import {
   getAdjacentAlgorithms,
+  getAlgorithmVisitStats,
   getAllAlgorithms,
   getAlgorithmByRoute,
   getImplementationStatus,
@@ -17,6 +19,8 @@ import { Badge } from '../components/common/Badge';
 import { RouteSearchModal } from '../components/common/RouteSearchModal';
 import { AlgorithmFAQ } from '../components/learning/AlgorithmFAQ';
 import { getSeoMetadata, routeToUrl, siteConfig } from '../data/seo';
+import { getLearnerNote, saveLearnerNote } from '../stores/learningStore';
+import { VisualizationSkeleton } from '../components/common/EmptyState';
 
 const PageFallback = () => (
   <div className="mx-auto max-w-7xl space-y-4 p-4" aria-label="Loading algorithm page">
@@ -27,7 +31,7 @@ const PageFallback = () => (
         <div className="h-40 animate-pulse rounded-xl bg-gray-200 dark:bg-gray-800" />
       </div>
       <div className="space-y-3">
-        <div className="h-72 animate-pulse rounded-xl bg-gray-200 dark:bg-gray-800" />
+        <VisualizationSkeleton />
         <div className="grid grid-cols-3 gap-3">
           <div className="h-20 animate-pulse rounded-xl bg-gray-200 dark:bg-gray-800" />
           <div className="h-20 animate-pulse rounded-xl bg-gray-200 dark:bg-gray-800" />
@@ -54,6 +58,98 @@ const GlobalFooter = () => (
     </div>
   </footer>
 );
+
+const shortcutRows = [
+  { keys: '?', action: 'Show keyboard shortcuts' },
+  { keys: 'Ctrl K', action: 'Search algorithms and routes' },
+  { keys: 'T', action: 'Train the current algorithm' },
+  { keys: 'R', action: 'Reset the current page' },
+  { keys: 'S', action: 'Step through the current algorithm' },
+  { keys: 'Ctrl S', action: 'Save the current page form or experiment' },
+  { keys: 'E', action: 'Export the current result' },
+  { keys: 'Esc', action: 'Close menus and dialogs' },
+];
+
+const KeyboardShortcutsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-gray-950/45 p-3 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+      <div className="mx-auto mt-16 max-w-md overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900">
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <HelpCircle size={17} className="text-blue-500" />
+            <h2 className="text-sm font-bold text-gray-900 dark:text-white">Keyboard Shortcuts</h2>
+          </div>
+          <button onClick={onClose} aria-label="Close keyboard shortcuts" className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="divide-y divide-gray-100 dark:divide-gray-800">
+          {shortcutRows.map(row => (
+            <div key={row.keys} className="flex items-center justify-between gap-3 px-4 py-3">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{row.action}</span>
+              <kbd className="shrink-0 rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-bold text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                {row.keys}
+              </kbd>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const NotesPanel: React.FC<{ open: boolean; route?: string; title?: string; onClose: () => void }> = ({ open, route, title, onClose }) => {
+  return (
+    <div className={`fixed inset-y-0 right-0 z-50 w-[min(380px,100vw)] transform border-l border-gray-200 bg-white shadow-2xl transition-transform duration-300 dark:border-gray-700 dark:bg-gray-900 ${open ? 'translate-x-0' : 'translate-x-full'}`} role="dialog" aria-modal="true" aria-label="Algorithm notes">
+      <NotesPanelBody key={route ?? 'no-route'} route={route} title={title} onClose={onClose} />
+    </div>
+  );
+};
+
+const NotesPanelBody: React.FC<{ route?: string; title?: string; onClose: () => void }> = ({ route, title, onClose }) => {
+  const [note, setNote] = React.useState(() => route ? getLearnerNote(route) : '');
+  const [saved, setSaved] = React.useState(false);
+
+  const save = () => {
+    if (!route) return;
+    saveLearnerNote(route, note);
+    setSaved(true);
+  };
+
+  return (
+    <>
+      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+        <div className="min-w-0">
+          <h2 className="text-sm font-bold text-gray-900 dark:text-white">Learning Notes</h2>
+          <p className="truncate text-xs text-gray-500 dark:text-gray-400">{title ?? 'Open an algorithm to save notes.'}</p>
+        </div>
+        <button onClick={onClose} aria-label="Close notes" className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200">
+          <X size={16} />
+        </button>
+      </div>
+      <div className="flex h-[calc(100%-57px)] flex-col gap-3 p-4">
+        <textarea
+          value={note}
+          onChange={event => {
+            setNote(event.target.value);
+            setSaved(false);
+          }}
+          disabled={!route}
+          className="min-h-0 flex-1 resize-none rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm leading-6 text-gray-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:ring-blue-950"
+          placeholder="Write what changed, what you noticed, and what you want to try next..."
+        />
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs text-gray-500 dark:text-gray-400">{saved ? 'Saved locally.' : 'Stored per algorithm in this browser.'}</span>
+          <button onClick={save} disabled={!route} className="inline-flex min-h-10 items-center gap-2 rounded bg-blue-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
+            <Pencil size={13} /> Save Note
+          </button>
+        </div>
+      </div>
+    </>
+  );
+};
 
 class RouteErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -188,14 +284,39 @@ const RelatedAlgorithms: React.FC<{ currentItem: AlgorithmNavItem }> = ({ curren
   );
 };
 
+const MiniTableOfContents: React.FC<{ items: { id: string; label: string }[] }> = ({ items }) => {
+  if (items.length < 4) return null;
+  return (
+    <nav className="mx-auto max-w-7xl px-4 pb-4 sm:px-6" aria-label="On this page">
+      <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">On this page</p>
+        <div className="flex flex-wrap gap-2">
+          {items.slice(0, 8).map(item => (
+            <a key={item.id} href={`#${item.id}`} className="rounded-full border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-blue-950/30 dark:hover:text-blue-200">
+              {item.label}
+            </a>
+          ))}
+        </div>
+      </div>
+    </nav>
+  );
+};
+
 export const RootLayout: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { collapsed, toggle } = useSidebarState();
   const { trainingMode, setTrainingMode } = useTrainingMode();
+  const { trainingSpeed, setTrainingSpeed } = useTrainingSpeed();
+  const { practiceMode, togglePracticeMode } = usePracticeMode();
+  const { teacherMode, toggleTeacherMode } = useTeacherMode();
   const location = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
   const [routeSearchOpen, setRouteSearchOpen] = React.useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
+  const [notesOpen, setNotesOpen] = React.useState(false);
+  const [visitStats, setVisitStats] = React.useState(() => getAlgorithmVisitStats());
   const [favoriteTick, setFavoriteTick] = React.useState(0);
+  const [tocItems, setTocItems] = React.useState<{ id: string; label: string }[]>([]);
   const seo = React.useMemo(() => getSeoMetadata(location.pathname), [location.pathname]);
   const currentItem = getAlgorithmByRoute(location.pathname);
   const categoryRoute = currentItem ? getAllAlgorithms().find(item => item.category === currentItem.category)?.route : undefined;
@@ -277,6 +398,33 @@ export const RootLayout: React.FC = () => {
   }, [location.pathname]);
 
   React.useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const headings = Array.from(document.querySelectorAll('main h2, main h3')) as HTMLElement[];
+      const items = headings
+        .map((heading, index) => {
+          const label = heading.textContent?.trim();
+          if (!label) return null;
+          if (!heading.id) heading.id = `section-${index + 1}-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+          return { id: heading.id, label };
+        })
+        .filter(Boolean) as { id: string; label: string }[];
+      setTocItems(items);
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [location.pathname]);
+
+  React.useEffect(() => {
+    const refresh = () => setVisitStats(getAlgorithmVisitStats());
+    refresh();
+    window.addEventListener('ml:algorithm-visited', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('ml:algorithm-visited', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, [location.pathname]);
+
+  React.useEffect(() => {
     const emitCommand = (name: string) => window.dispatchEvent(new CustomEvent(`ml:${name}`));
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -289,6 +437,8 @@ export const RootLayout: React.FC = () => {
       if (event.key === 'Escape') {
         setMobileSidebarOpen(false);
         setRouteSearchOpen(false);
+        setShortcutsOpen(false);
+        setNotesOpen(false);
         return;
       }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
@@ -297,6 +447,11 @@ export const RootLayout: React.FC = () => {
         return;
       }
       if (editing) return;
+      if (event.key === '?') {
+        event.preventDefault();
+        setShortcutsOpen(true);
+        return;
+      }
       if (event.key.toLowerCase() === 't') emitCommand('train');
       if (event.key.toLowerCase() === 'r') emitCommand('reset');
       if (event.key.toLowerCase() === 's') emitCommand('step');
@@ -396,6 +551,45 @@ export const RootLayout: React.FC = () => {
                 Auto
               </button>
             </div>
+            <div className="inline-flex min-h-10 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 p-1 text-xs font-bold dark:border-gray-700 dark:bg-gray-800" title="Choose training animation speed">
+              {(['slow', 'normal', 'fast'] as const).map(speed => (
+                <button
+                  key={speed}
+                  onClick={() => setTrainingSpeed(speed)}
+                  className={`rounded px-2.5 py-1.5 capitalize ${trainingSpeed === speed ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-950 dark:text-white' : 'text-gray-500 dark:text-gray-300'}`}
+                >
+                  {speed}
+                </button>
+              ))}
+            </div>
+            <div className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-2 text-xs font-bold text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/30 dark:text-orange-200" title={`Visited ${visitStats.visitedCount} algorithms`}>
+              <Flame size={14} />
+              {visitStats.streakDays}d
+            </div>
+            <button
+              onClick={togglePracticeMode}
+              className={`inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold ${practiceMode ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-900 dark:bg-purple-950/30 dark:text-purple-200' : 'border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}
+              title="Practice mode hides explanations"
+            >
+              <EyeOff size={14} />
+              Practice
+            </button>
+            <button
+              onClick={toggleTeacherMode}
+              className={`inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold ${teacherMode ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200' : 'border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}
+              title="Teacher mode increases interface text size"
+            >
+              <Type size={14} />
+              Teacher
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+              title="Print worksheet for this page"
+            >
+              <Printer size={14} />
+              Print
+            </button>
           </div>
           <div className="flex items-center gap-1.5">
             <Link
@@ -425,6 +619,38 @@ export const RootLayout: React.FC = () => {
               <Search size={16} />
             </button>
             <button
+              onClick={() => setNotesOpen(true)}
+              className="grid min-h-10 min-w-10 place-items-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+              title="Learning notes"
+              aria-label="Open learning notes"
+            >
+              <Pencil size={16} />
+            </button>
+            <button
+              onClick={() => setShortcutsOpen(true)}
+              className="grid min-h-10 min-w-10 place-items-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+              title="Keyboard shortcuts (?)"
+              aria-label="Show keyboard shortcuts"
+            >
+              <HelpCircle size={16} />
+            </button>
+            <button
+              onClick={togglePracticeMode}
+              className={`grid min-h-10 min-w-10 place-items-center rounded-lg ${practiceMode ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-200' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
+              title="Practice mode"
+              aria-label="Toggle practice mode"
+            >
+              <EyeOff size={16} />
+            </button>
+            <button
+              onClick={toggleTeacherMode}
+              className={`grid min-h-10 min-w-10 place-items-center rounded-lg ${teacherMode ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
+              title="Teacher mode"
+              aria-label="Toggle teacher mode"
+            >
+              <Type size={16} />
+            </button>
+            <button
               onClick={toggleTheme}
               className="grid min-h-10 min-w-10 place-items-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
               aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -436,7 +662,7 @@ export const RootLayout: React.FC = () => {
         </div>
         {breadcrumbItems.length > 0 && <AlgorithmBreadcrumbs items={breadcrumbItems} />}
         {currentItem && algorithmStatus && (
-          <div className={`shrink-0 border-b px-3 py-2 sm:px-4 ${statusTone}`} key={favoriteTick}>
+          <div className={`sticky top-0 z-10 shrink-0 border-b px-3 py-2 sm:px-4 ${statusTone}`} key={favoriteTick}>
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               {algorithmStatus === 'Implemented' ? <CheckCircle2 size={15} /> : algorithmStatus === 'Scaffold' ? <AlertTriangle size={15} /> : <Info size={15} />}
               <Link to="/implementation-matrix" className="text-xs font-bold uppercase tracking-wide hover:underline">
@@ -502,17 +728,31 @@ export const RootLayout: React.FC = () => {
         )}
         {/* Main content */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
-          <RouteErrorBoundary key={location.pathname}>
-            <Suspense fallback={<PageFallback />}>
-              <Outlet />
-              {currentItem && <AlgorithmFAQ algorithm={currentItem} />}
-              {currentItem && <RelatedAlgorithms currentItem={currentItem} />}
-              <GlobalFooter />
-            </Suspense>
-          </RouteErrorBoundary>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              className="min-h-full"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+            >
+              <RouteErrorBoundary key={location.pathname}>
+                <Suspense fallback={<PageFallback />}>
+                  <Outlet />
+                  <MiniTableOfContents items={tocItems} />
+                  {currentItem && <AlgorithmFAQ algorithm={currentItem} />}
+                  {currentItem && <RelatedAlgorithms currentItem={currentItem} />}
+                  <GlobalFooter />
+                </Suspense>
+              </RouteErrorBoundary>
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
       <RouteSearchModal open={routeSearchOpen} onClose={() => setRouteSearchOpen(false)} />
+      <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <NotesPanel open={notesOpen} route={currentItem?.route} title={currentItem?.label} onClose={() => setNotesOpen(false)} />
     </div>
   );
 };

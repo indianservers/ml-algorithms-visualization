@@ -31,7 +31,7 @@ export function AlgorithmWorkbenchLayout({
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_1fr]">
-      <div className="space-y-4">
+      <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
         {controls}
         {metrics}
         <Card title="Export and Save" subtitle="Keep a copy of this run or add it to your saved experiments.">

@@ -20,12 +20,18 @@ function LearningCompanionBody({ route, compact = false }: LearningCompanionProp
   const [score, setScore] = React.useState<number | null>(null);
   const [note, setNote] = React.useState(() => getLearnerNote(route));
   const [message, setMessage] = React.useState('');
+  const [celebrate, setCelebrate] = React.useState(false);
 
   const submitQuiz = () => {
     const nextScore = content.quiz.reduce((sum, question, index) => sum + (answers[index] === question.answer ? 1 : 0), 0);
     setScore(nextScore);
     saveQuizResult({ route, score: nextScore, total: content.quiz.length });
-    setMessage(nextScore === content.quiz.length ? 'Perfect quiz. Marked complete.' : 'Quiz saved. Review the explanations and try again.');
+    const strongScore = content.quiz.length > 0 && nextScore / content.quiz.length >= 0.8;
+    setMessage(nextScore === content.quiz.length ? 'Perfect quiz. Marked complete.' : strongScore ? 'Great score. Quiz saved.' : 'Quiz saved. Review the explanations and try again.');
+    if (strongScore) {
+      setCelebrate(true);
+      window.setTimeout(() => setCelebrate(false), 1100);
+    }
   };
 
   const saveNote = () => {
@@ -47,7 +53,8 @@ function LearningCompanionBody({ route, compact = false }: LearningCompanionProp
 
   return (
     <div className="space-y-4">
-      <Card title="Learning Companion" subtitle="Objectives, intuition, quiz, notes, and challenge tracking for this route." icon={<GraduationCap size={15} />}>
+      <div data-learning-explanation>
+        <Card title="Learning Companion" subtitle="Objectives, intuition, quiz, notes, and challenge tracking for this route." icon={<GraduationCap size={15} />}>
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-3">
             <div>
@@ -84,7 +91,8 @@ function LearningCompanionBody({ route, compact = false }: LearningCompanionProp
             )}
           </div>
         </div>
-      </Card>
+        </Card>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Mini Challenge" subtitle={content.challenge} icon={<Trophy size={15} />}>
@@ -106,7 +114,23 @@ function LearningCompanionBody({ route, compact = false }: LearningCompanionProp
       </div>
 
       <Card title="Quick Quiz" subtitle="Three checks for durable understanding." icon={<Code2 size={15} />} collapsible>
-        <div className="space-y-3">
+        <div className="relative space-y-3 overflow-hidden">
+          {celebrate && (
+            <div className="pointer-events-none absolute inset-0 z-10">
+              {Array.from({ length: 18 }).map((_, index) => (
+                <span
+                  key={index}
+                  className="quiz-confetti"
+                  style={{
+                    left: `${8 + ((index * 47) % 84)}%`,
+                    animationDelay: `${(index % 6) * 45}ms`,
+                    '--burst-x': `${(index % 2 === 0 ? 1 : -1) * (18 + (index % 5) * 12)}px`,
+                    backgroundColor: ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#9333ea'][index % 5],
+                  } as React.CSSProperties}
+                />
+              ))}
+            </div>
+          )}
           {content.quiz.map((question, index) => (
             <div key={question.question} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
               <p className="mb-2 text-sm font-semibold text-gray-900 dark:text-white">{index + 1}. {question.question}</p>

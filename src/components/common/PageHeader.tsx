@@ -2,7 +2,7 @@ import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { Badge } from './Badge';
 import type { BadgeType } from '../../data/navigation';
-import { ChevronRight, Home } from 'lucide-react';
+import { ChevronRight, Clock, Home } from 'lucide-react';
 import { getAlgorithmByRoute, getAllAlgorithms } from '../../data/implementationStatus';
 import { getAlgorithmDatasetSuggestions } from '../../data/algorithmDatasets';
 import { LearningCompanion } from '../learning/LearningCompanion';
@@ -29,6 +29,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, badge, 
   const datasetSuggestions = isAlgorithmRoute
     ? getAlgorithmDatasetSuggestions(location.pathname, category).slice(0, 3)
     : [];
+  const estimatedMinutes = currentAlgorithm?.badge === 'Beginner' ? 8 : currentAlgorithm?.badge === 'Intermediate' ? 12 : currentAlgorithm ? 18 : undefined;
 
   return (
     <div className="mb-5 sm:mb-6">
@@ -58,6 +59,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, badge, 
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <h1 className="break-words text-xl font-bold leading-tight text-gray-900 dark:text-white sm:text-2xl">{title}</h1>
             <Badge type={badge} size="md" />
+            {estimatedMinutes && (
+              <span className="inline-flex min-h-8 items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-bold text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" title="Estimated learning time">
+                <Clock size={12} />
+                {estimatedMinutes} min
+              </span>
+            )}
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{category}</p>
           <p className="text-sm text-gray-600 dark:text-gray-300">{subtitle}</p>
