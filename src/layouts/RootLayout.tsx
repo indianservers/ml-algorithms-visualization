@@ -5,12 +5,14 @@ import { useTheme, useSidebarState, useTrainingMode } from '../stores/uiStore';
 import { Sun, Moon, Menu, Search, Play, RotateCcw, StepForward, Save, Download, AlertTriangle, CheckCircle2, Info, ChevronLeft, ChevronRight, Star, Database, Upload } from 'lucide-react';
 import {
   getAdjacentAlgorithms,
+  getAllAlgorithms,
   getAlgorithmByRoute,
   getImplementationStatus,
   isFavoriteRoute,
   rememberRoute,
   toggleFavoriteRoute,
 } from '../data/implementationStatus';
+import type { AlgorithmNavItem } from '../data/implementationStatus';
 import { Badge } from '../components/common/Badge';
 import { RouteSearchModal } from '../components/common/RouteSearchModal';
 import { AlgorithmFAQ } from '../components/learning/AlgorithmFAQ';
@@ -74,6 +76,118 @@ class RouteErrorBoundary extends React.Component<{ children: React.ReactNode }, 
   }
 }
 
+type BreadcrumbItem = {
+  label: string;
+  route?: string;
+};
+
+const AlgorithmBreadcrumbs: React.FC<{ items: BreadcrumbItem[] }> = ({ items }) => (
+  <nav
+    aria-label="Breadcrumb"
+    className="shrink-0 border-b border-gray-200 bg-white px-3 py-2 text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-400 sm:px-4"
+  >
+    <ol className="flex min-w-0 items-center gap-1.5 overflow-x-auto scrollbar-thin">
+      {items.map((item, index) => {
+        const last = index === items.length - 1;
+        return (
+          <li key={`${item.label}-${index}`} className="flex min-w-0 shrink-0 items-center gap-1.5">
+            {item.route && !last ? (
+              <Link to={item.route} className="font-semibold text-gray-600 hover:text-blue-600 hover:underline dark:text-gray-300 dark:hover:text-blue-300">
+                {item.label}
+              </Link>
+            ) : (
+              <span className={last ? 'max-w-[52vw] truncate font-bold text-gray-900 dark:text-white sm:max-w-none' : 'font-semibold text-gray-600 dark:text-gray-300'} aria-current={last ? 'page' : undefined}>
+                {item.label}
+              </span>
+            )}
+            {!last && <ChevronRight size={12} className="text-gray-400" aria-hidden="true" />}
+          </li>
+        );
+      })}
+    </ol>
+  </nav>
+);
+
+const routeFamily = (route: string) => route.split('/').slice(0, 3).join('/');
+
+function getRelatedAlgorithms(currentItem: AlgorithmNavItem) {
+  const allAlgorithms = getAllAlgorithms();
+  const adjacent = getAdjacentAlgorithms(currentItem.route);
+  const candidates = allAlgorithms
+    .filter(item => item.route !== currentItem.route)
+    .map(item => {
+      const reasons = [
+        item.category === currentItem.category ? 'Same category' : '',
+        item.badge === currentItem.badge ? 'Same level' : '',
+        routeFamily(item.route) === routeFamily(currentItem.route) ? 'Related topic' : '',
+        item.route === adjacent.previous?.route || item.route === adjacent.next?.route ? 'Nearby lesson' : '',
+      ].filter(Boolean);
+      const score =
+        (item.category === currentItem.category ? 4 : 0) +
+        (item.badge === currentItem.badge ? 2 : 0) +
+        (routeFamily(item.route) === routeFamily(currentItem.route) ? 2 : 0) +
+        (item.route === adjacent.previous?.route || item.route === adjacent.next?.route ? 1 : 0);
+      return { item, reasons, score };
+    })
+    .filter(candidate => candidate.score > 0)
+    .sort((a, b) => b.score - a.score || a.item.categoryIndex - b.item.categoryIndex || a.item.itemIndex - b.item.itemIndex);
+
+  return candidates.slice(0, 6);
+}
+
+const RelatedAlgorithms: React.FC<{ currentItem: AlgorithmNavItem }> = ({ currentItem }) => {
+  const related = React.useMemo(() => getRelatedAlgorithms(currentItem), [currentItem]);
+  if (related.length === 0) return null;
+
+  return (
+    <section className="mx-auto max-w-7xl px-4 pb-6 sm:px-6" aria-labelledby="related-algorithms-heading">
+      <div className="border-t border-gray-200 pt-5 dark:border-gray-800">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 id="related-algorithms-heading" className="text-lg font-bold text-gray-950 dark:text-white">Related Algorithms</h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Continue with similar modules by category, level, or nearby lesson order.</p>
+          </div>
+          <Link to="/documentation" className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-blue-950/30 dark:hover:text-blue-200">
+            All modules
+            <ChevronRight size={13} />
+          </Link>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {related.map(({ item, reasons }) => {
+            const status = getImplementationStatus(item.route);
+            return (
+              <Link
+                key={item.route}
+                to={item.route}
+                className="group rounded-lg border border-gray-200 bg-white p-4 hover:border-blue-300 hover:bg-blue-50/70 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-blue-950/20"
+              >
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">{item.label}</h3>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{item.category}</p>
+                  </div>
+                  <ChevronRight size={15} className="mt-0.5 shrink-0 text-gray-400 group-hover:text-blue-500" />
+                </div>
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  <Badge type={item.badge} />
+                  {status !== 'Implemented' && <Badge type={status} />}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {reasons.slice(0, 2).map(reason => (
+                    <span key={reason} className="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                      {reason}
+                    </span>
+                  ))}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+};
+
 export const RootLayout: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { collapsed, toggle } = useSidebarState();
@@ -83,6 +197,15 @@ export const RootLayout: React.FC = () => {
   const [routeSearchOpen, setRouteSearchOpen] = React.useState(false);
   const [favoriteTick, setFavoriteTick] = React.useState(0);
   const seo = React.useMemo(() => getSeoMetadata(location.pathname), [location.pathname]);
+  const currentItem = getAlgorithmByRoute(location.pathname);
+  const categoryRoute = currentItem ? getAllAlgorithms().find(item => item.category === currentItem.category)?.route : undefined;
+  const breadcrumbItems = currentItem
+    ? [
+      { label: 'Home', route: '/' },
+      { label: currentItem.category, route: categoryRoute },
+      { label: currentItem.label },
+    ]
+    : [];
 
   React.useEffect(() => {
     const setMeta = (selector: string, attributes: Record<string, string>) => {
@@ -105,6 +228,7 @@ export const RootLayout: React.FC = () => {
     };
 
     const canonicalUrl = routeToUrl(seo.path);
+    const ogImageUrl = `${siteConfig.domain}${siteConfig.ogImage}`;
     document.title = seo.title;
     setMeta('meta[name="description"]', { name: 'description', content: seo.description });
     setMeta('meta[name="keywords"]', { name: 'keywords', content: seo.keywords.join(', ') });
@@ -115,11 +239,38 @@ export const RootLayout: React.FC = () => {
     setMeta('meta[property="og:url"]', { property: 'og:url', content: canonicalUrl });
     setMeta('meta[property="og:type"]', { property: 'og:type', content: 'website' });
     setMeta('meta[property="og:site_name"]', { property: 'og:site_name', content: siteConfig.name });
-    setMeta('meta[name="twitter:card"]', { name: 'twitter:card', content: 'summary' });
+    setMeta('meta[property="og:image"]', { property: 'og:image', content: ogImageUrl });
+    setMeta('meta[property="og:image:secure_url"]', { property: 'og:image:secure_url', content: ogImageUrl });
+    setMeta('meta[property="og:image:type"]', { property: 'og:image:type', content: 'image/png' });
+    setMeta('meta[property="og:image:width"]', { property: 'og:image:width', content: '1200' });
+    setMeta('meta[property="og:image:height"]', { property: 'og:image:height', content: '630' });
+    setMeta('meta[property="og:image:alt"]', { property: 'og:image:alt', content: `${siteConfig.name} preview card` });
+    setMeta('meta[name="twitter:card"]', { name: 'twitter:card', content: 'summary_large_image' });
     setMeta('meta[name="twitter:title"]', { name: 'twitter:title', content: seo.title });
     setMeta('meta[name="twitter:description"]', { name: 'twitter:description', content: seo.description });
+    setMeta('meta[name="twitter:image"]', { name: 'twitter:image', content: ogImageUrl });
+    setMeta('meta[name="twitter:image:alt"]', { name: 'twitter:image:alt', content: `${siteConfig.name} preview card` });
     setLink('canonical', canonicalUrl);
-  }, [seo]);
+
+    const existingBreadcrumbScript = document.getElementById('breadcrumb-jsonld');
+    if (currentItem) {
+      const breadcrumbScript = existingBreadcrumbScript ?? document.createElement('script');
+      breadcrumbScript.id = 'breadcrumb-jsonld';
+      breadcrumbScript.setAttribute('type', 'application/ld+json');
+      breadcrumbScript.textContent = JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home', item: routeToUrl('/') },
+          { '@type': 'ListItem', position: 2, name: currentItem.category, item: routeToUrl(categoryRoute ?? currentItem.route) },
+          { '@type': 'ListItem', position: 3, name: currentItem.label, item: routeToUrl(currentItem.route) },
+        ],
+      });
+      if (!existingBreadcrumbScript) document.head.appendChild(breadcrumbScript);
+    } else {
+      existingBreadcrumbScript?.remove();
+    }
+  }, [seo, currentItem, categoryRoute]);
 
   React.useEffect(() => {
     if (location.pathname.startsWith('/ml/')) rememberRoute(location.pathname);
@@ -155,7 +306,6 @@ export const RootLayout: React.FC = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const currentItem = getAlgorithmByRoute(location.pathname);
   const adjacent = getAdjacentAlgorithms(location.pathname);
   const isFavorite = currentItem ? isFavoriteRoute(currentItem.route) : false;
   const algorithmStatus = currentItem ? getImplementationStatus(currentItem.route) : undefined;
@@ -284,6 +434,7 @@ export const RootLayout: React.FC = () => {
             </button>
           </div>
         </div>
+        {breadcrumbItems.length > 0 && <AlgorithmBreadcrumbs items={breadcrumbItems} />}
         {currentItem && algorithmStatus && (
           <div className={`shrink-0 border-b px-3 py-2 sm:px-4 ${statusTone}`} key={favoriteTick}>
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -355,6 +506,7 @@ export const RootLayout: React.FC = () => {
             <Suspense fallback={<PageFallback />}>
               <Outlet />
               {currentItem && <AlgorithmFAQ algorithm={currentItem} />}
+              {currentItem && <RelatedAlgorithms currentItem={currentItem} />}
               <GlobalFooter />
             </Suspense>
           </RouteErrorBoundary>

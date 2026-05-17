@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, ExternalLink, FileText, Search, ShieldCheck } from 'lucide-react';
+import { BookOpen, Database, ExternalLink, FileText, Search, ShieldCheck } from 'lucide-react';
 import { Badge } from '../components/common/Badge';
 import { getDocumentationGroups, getAllSeoRoutes, routeToUrl } from '../data/seo';
 
@@ -40,7 +40,12 @@ export default function DocumentationPage() {
         </div>
       </div>
 
-      <div className="mb-6 grid gap-3 md:grid-cols-3">
+      <div className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Link to="/dataset-library" className="flex min-h-20 items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 text-sm font-semibold text-gray-800 hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-blue-950/30">
+          <Database size={18} className="text-blue-600 dark:text-blue-300" />
+          Dataset library
+          <ExternalLink size={14} className="ml-auto text-gray-400" />
+        </Link>
         <Link to="/sitemap" className="flex min-h-20 items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 text-sm font-semibold text-gray-800 hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-blue-950/30">
           <Search size={18} className="text-blue-600 dark:text-blue-300" />
           Search sitemap page

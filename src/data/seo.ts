@@ -4,6 +4,7 @@ import { navigationData } from './navigation';
 export const siteConfig = {
   name: 'Mega ML Algorithms Suite',
   domain: 'https://www.AimerSociety.com',
+  ogImage: '/og-image.png',
   description:
     'Interactive browser-based machine learning visualizations, algorithm workbenches, datasets, metrics, and learning labs.',
   keywords: [
@@ -77,6 +78,17 @@ export function getSeoMetadata(pathname: string): SeoRoute {
     };
   }
 
+  if (path === '/dataset-library') {
+    return {
+      path,
+      title: `Dataset Preset Library | ${siteConfig.name}`,
+      description: 'Central library of sample machine learning datasets with use cases, target variables, schema details, and compatible algorithm modules.',
+      keywords: ['sample datasets', 'machine learning datasets', 'dataset presets', 'target variables', 'compatible algorithms'],
+      priority: 0.8,
+      changeFrequency: 'weekly',
+    };
+  }
+
   if (path === '/implementation-matrix') {
     return {
       path,
@@ -102,6 +114,7 @@ export function getAllSeoRoutes(): SeoRoute[] {
   return [
     getSeoMetadata('/'),
     getSeoMetadata('/documentation'),
+    getSeoMetadata('/dataset-library'),
     getSeoMetadata('/sitemap'),
     getSeoMetadata('/implementation-matrix'),
     ...getAllAlgorithms().map(item => getSeoMetadata(item.route)),

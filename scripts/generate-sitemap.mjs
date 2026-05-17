@@ -15,6 +15,7 @@ const algorithmRoutes = [...navigation.matchAll(/route:\s*'([^']+)'/g)]
 const routes = [
   { path: '/', priority: '1.0', changefreq: 'weekly' },
   { path: '/documentation', priority: '0.9', changefreq: 'weekly' },
+  { path: '/dataset-library', priority: '0.8', changefreq: 'weekly' },
   { path: '/sitemap', priority: '0.7', changefreq: 'weekly' },
   { path: '/implementation-matrix', priority: '0.7', changefreq: 'weekly' },
   ...algorithmRoutes.map(path => ({ path, priority: '0.8', changefreq: 'monthly' })),
