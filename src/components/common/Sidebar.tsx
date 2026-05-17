@@ -14,7 +14,7 @@ import {
   TrendingUp, GitBranch, Network, Minimize2, Brain, BarChart2, Filter,
   Activity, MessageSquare, Eye, Star, Play, Lightbulb, Zap, Layers,
   FlaskConical, Upload, ChevronDown, ChevronRight, Search, X, Home,
-  Sigma,
+  Sigma, BookOpen, Map,
 } from 'lucide-react';
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -126,6 +126,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigat
           <ChevronRight size={18} />
         </button>
         <NavLink to="/" onClick={onNavigate} className="grid min-h-10 min-w-10 place-items-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"><Home size={18} /></NavLink>
+        <NavLink to="/documentation" onClick={onNavigate} className="grid min-h-10 min-w-10 place-items-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500" title="Documentation"><BookOpen size={18} /></NavLink>
+        <NavLink to="/sitemap" onClick={onNavigate} className="grid min-h-10 min-w-10 place-items-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500" title="Sitemap"><Map size={18} /></NavLink>
         {navigationData.map(cat => (
           <button
             key={cat.category}
@@ -217,6 +219,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigat
           end
         >
           <Home size={13} /> Home
+        </NavLink>
+        <NavLink
+          to="/documentation"
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            `flex min-h-10 items-center gap-2 mx-2 px-3 py-2 rounded-md text-xs font-medium transition-colors ${isActive ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`
+          }
+        >
+          <BookOpen size={13} /> Documentation
+        </NavLink>
+        <NavLink
+          to="/sitemap"
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            `flex min-h-10 items-center gap-2 mx-2 px-3 py-2 rounded-md text-xs font-medium transition-colors ${isActive ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`
+          }
+        >
+          <Map size={13} /> Sitemap
         </NavLink>
 
         {!filtersActive && favoriteItems.length > 0 && (

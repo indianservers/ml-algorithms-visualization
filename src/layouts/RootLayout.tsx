@@ -14,6 +14,7 @@ import {
 import { Badge } from '../components/common/Badge';
 import { RouteSearchModal } from '../components/common/RouteSearchModal';
 import { AlgorithmFAQ } from '../components/learning/AlgorithmFAQ';
+import { getSeoMetadata, routeToUrl, siteConfig } from '../data/seo';
 
 const PageFallback = () => (
   <div className="mx-auto max-w-7xl space-y-4 p-4" aria-label="Loading algorithm page">
@@ -81,6 +82,44 @@ export const RootLayout: React.FC = () => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
   const [routeSearchOpen, setRouteSearchOpen] = React.useState(false);
   const [favoriteTick, setFavoriteTick] = React.useState(0);
+  const seo = React.useMemo(() => getSeoMetadata(location.pathname), [location.pathname]);
+
+  React.useEffect(() => {
+    const setMeta = (selector: string, attributes: Record<string, string>) => {
+      let element = document.head.querySelector<HTMLMetaElement>(selector);
+      if (!element) {
+        element = document.createElement('meta');
+        document.head.appendChild(element);
+      }
+      Object.entries(attributes).forEach(([key, value]) => element?.setAttribute(key, value));
+    };
+
+    const setLink = (rel: string, href: string) => {
+      let element = document.head.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
+      if (!element) {
+        element = document.createElement('link');
+        element.setAttribute('rel', rel);
+        document.head.appendChild(element);
+      }
+      element.setAttribute('href', href);
+    };
+
+    const canonicalUrl = routeToUrl(seo.path);
+    document.title = seo.title;
+    setMeta('meta[name="description"]', { name: 'description', content: seo.description });
+    setMeta('meta[name="keywords"]', { name: 'keywords', content: seo.keywords.join(', ') });
+    setMeta('meta[name="robots"]', { name: 'robots', content: 'index, follow' });
+    setMeta('meta[name="application-name"]', { name: 'application-name', content: siteConfig.name });
+    setMeta('meta[property="og:title"]', { property: 'og:title', content: seo.title });
+    setMeta('meta[property="og:description"]', { property: 'og:description', content: seo.description });
+    setMeta('meta[property="og:url"]', { property: 'og:url', content: canonicalUrl });
+    setMeta('meta[property="og:type"]', { property: 'og:type', content: 'website' });
+    setMeta('meta[property="og:site_name"]', { property: 'og:site_name', content: siteConfig.name });
+    setMeta('meta[name="twitter:card"]', { name: 'twitter:card', content: 'summary' });
+    setMeta('meta[name="twitter:title"]', { name: 'twitter:title', content: seo.title });
+    setMeta('meta[name="twitter:description"]', { name: 'twitter:description', content: seo.description });
+    setLink('canonical', canonicalUrl);
+  }, [seo]);
 
   React.useEffect(() => {
     if (location.pathname.startsWith('/ml/')) rememberRoute(location.pathname);

@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "npm run audit:pages",
+    "prebuild": "node scripts/generate-sitemap.mjs && node scripts/audit-pages.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "generate:sitemap": "node scripts/generate-sitemap.mjs",
     "audit:pages": "node scripts/audit-pages.mjs",
     "smoke:routes": "node scripts/smoke-routes.mjs",
     "test:core": "node scripts/unit-core.cjs",

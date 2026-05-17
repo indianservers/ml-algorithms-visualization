@@ -4,6 +4,8 @@ import { RootLayout } from '../layouts/RootLayout';
 
 const HomePage = lazy(() => import('../pages/HomePage'));
 const ImplementationMatrixPage = lazy(() => import('../pages/ImplementationMatrixPage'));
+const DocumentationPage = lazy(() => import('../pages/DocumentationPage'));
+const SitemapPage = lazy(() => import('../pages/SitemapPage'));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'));
 
 // Supervised – Regression
@@ -157,6 +159,8 @@ export const router = createBrowserRouter([
     element: <RootLayout />,
     children: [
       { index: true, element: <HomePage /> },
+      { path: 'documentation', element: <DocumentationPage /> },
+      { path: 'sitemap', element: <SitemapPage /> },
       { path: 'implementation-matrix', element: <ImplementationMatrixPage /> },
       // Supervised – Regression
       { path: 'ml/supervised/simple-linear-regression', element: <SimpleLinearRegressionPage /> },
