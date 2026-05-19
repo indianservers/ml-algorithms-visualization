@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Brain, TrendingUp, Network, Minimize2, BookOpen, FlaskConical, ArrowRight, Clock, Database, GraduationCap, Trophy } from 'lucide-react';
+import { Activity, Brain, TrendingUp, Network, Minimize2, BookOpen, FlaskConical, ArrowRight, Clock, Database, GraduationCap, Trophy } from 'lucide-react';
 import { getImplementationStatus, getLearningPath, getRecentRoutes, implementationSummary } from '../data/implementationStatus';
 import { navigationData } from '../data/navigation';
 import { loadExperiments, type Experiment } from '../stores/experimentStore';
@@ -64,6 +64,18 @@ export default function HomePage() {
   const summary = implementationSummary();
   const learningStats = getLearningStats();
   const recentRoutes = getRecentRoutes();
+  const coverageTotal = summary.total || 1;
+  const coverageSegments = [
+    { label: 'Implemented', count: summary.counts.Implemented, color: 'bg-green-500' },
+    { label: 'Educational', count: summary.counts.Educational, color: 'bg-amber-500' },
+    { label: 'Concept', count: summary.counts.Concept, color: 'bg-purple-500' },
+    { label: 'Scaffold', count: summary.counts.Scaffold, color: 'bg-red-500' },
+  ];
+  const categoryCoverage = navigationData.map(category => {
+    const items = category.items;
+    const implemented = items.filter(item => getImplementationStatus(item.route) === 'Implemented').length;
+    return { category: category.category, implemented, total: items.length };
+  });
   const allItems = navigationData.flatMap(category => category.items);
   const learningPaths = [
     { title: 'Beginner Path', level: 'Beginner' as const, description: 'Start with the core ideas, visual intuition, and essential metrics.' },
@@ -166,6 +178,45 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+        <Link
+          to="/implementation-matrix"
+          title="Scaffold pages show static content only. Implemented pages run real computation in your browser."
+          className="rounded-xl border border-gray-200 bg-white p-4 transition hover:border-blue-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-900 dark:hover:border-blue-700 lg:col-span-3"
+        >
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white"><Activity size={18} /> Suite Coverage</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Transparent status across the algorithm library.</p>
+            </div>
+            <ArrowRight size={18} className="text-gray-400" />
+          </div>
+          <div className="mb-3 flex h-3 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+            {coverageSegments.map(segment => (
+              <div
+                key={segment.label}
+                className={segment.color}
+                style={{ width: `${(segment.count / coverageTotal) * 100}%` }}
+                aria-label={`${segment.label}: ${segment.count}`}
+              />
+            ))}
+          </div>
+          <p className="mb-4 text-sm font-semibold text-gray-700 dark:text-gray-200">
+            {summary.counts.Implemented} Implemented · {summary.counts.Educational} Educational · {summary.counts.Concept} Concept · {summary.counts.Scaffold} Scaffold · {summary.total} Total
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {categoryCoverage.slice(0, 12).map(item => (
+              <div key={item.category} className="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs dark:border-gray-700 dark:bg-gray-800">
+                <div className="mb-1 flex justify-between gap-2">
+                  <span className="truncate font-semibold text-gray-700 dark:text-gray-200">{item.category}</span>
+                  <span className="font-mono text-gray-500">{item.implemented}/{item.total}</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded bg-gray-200 dark:bg-gray-700">
+                  <div className="h-full bg-green-500" style={{ width: `${item.total ? (item.implemented / item.total) * 100 : 0}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Link>
         {learningPaths.map(path => {
           const items = getLearningPath(path.level).slice(0, 4);
           return (

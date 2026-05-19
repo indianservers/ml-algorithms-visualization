@@ -145,8 +145,9 @@ export const navigationData: NavCategory[] = [
     icon: 'Eye',
     items: [
       { label: 'Image Classification', route: '/ml/computer-vision/image-classification', badge: 'Browser Trainable' },
+      { label: 'Audio Classification', route: '/ml/computer-vision/audio-classification', badge: 'Browser Trainable' },
       { label: 'Hand Gesture Recognition', route: '/ml/computer-vision/hand-gesture-recognition', badge: 'Browser Trainable' },
-      { label: 'Pose Detection', route: '/ml/computer-vision/pose-detection', badge: 'Browser Inference' },
+      { label: 'Pose Classification', route: '/ml/computer-vision/pose-detection', badge: 'Browser Trainable' },
       { label: 'Person Segmentation', route: '/ml/computer-vision/person-segmentation', badge: 'Browser Inference' },
       { label: 'CNN Filter Explorer', route: '/ml/computer-vision/cnn-filter-explorer', badge: 'Educational' },
       { label: 'K-Means Image Segmentation', route: '/ml/computer-vision/kmeans-image-segmentation', badge: 'Intermediate' },
@@ -225,6 +226,7 @@ export const navigationData: NavCategory[] = [
     category: 'Lab',
     icon: 'FlaskConical',
     items: [
+      { label: 'Train Your Model', route: '/ml/lab/train-your-model', badge: 'Browser Trainable' },
       { label: 'Architecture Flow Lab', route: '/ml/lab/architecture-flow', badge: 'Educational' },
       { label: 'Algorithm Comparison Lab', route: '/ml/lab/algorithm-comparison', badge: 'Advanced' },
       { label: 'Hyperparameter Tuning Lab', route: '/ml/lab/hyperparameter-tuning', badge: 'Advanced' },

@@ -56,29 +56,119 @@ function meanShift(X: number[][], bandwidth: number) {
   return { centers, assignments, score: centers.length };
 }
 
-function gaussianSoft(X: number[][], k: number) {
-  const centers = X.slice(0, k);
-  const probs = X.map(x => {
-    const raw = centers.map(c => Math.exp(-(dist(x, c) ** 2) / 2));
-    const total = raw.reduce((a, b) => a + b, 0);
-    return raw.map(v => v / total);
-  });
-  return { centers, assignments: probs.map(row => row.reduce((best, p, i) => p > row[best] ? i : best, 0)), probs, score: probs.reduce((sum, row) => sum + Math.max(...row), 0) / probs.length };
+function gaussianPdf2d(x: number[], mean: number[], variance: number[]) {
+  const vx = Math.max(variance[0], 0.05);
+  const vy = Math.max(variance[1], 0.05);
+  const norm = 1 / (2 * Math.PI * Math.sqrt(vx * vy));
+  const exponent = -0.5 * (((x[0] - mean[0]) ** 2) / vx + ((x[1] - mean[1]) ** 2) / vy);
+  return norm * Math.exp(exponent);
+}
+
+function gaussianEM(X: number[][], k: number) {
+  let means = X.slice(0, k).map(point => [...point]);
+  let variances = Array.from({ length: k }, () => [1, 1]);
+  let weights = Array.from({ length: k }, () => 1 / k);
+  let responsibilities = X.map(() => Array.from({ length: k }, () => 1 / k));
+  const logLikelihood: Array<{ iteration: number; logLikelihood: number }> = [];
+
+  for (let iteration = 0; iteration < 25; iteration++) {
+    responsibilities = X.map(point => {
+      const raw = means.map((mean, component) => weights[component] * gaussianPdf2d(point, mean, variances[component]));
+      const total = raw.reduce((sum, value) => sum + value, 0) || 1e-9;
+      return raw.map(value => value / total);
+    });
+
+    means = means.map((_, component) => {
+      const nk = responsibilities.reduce((sum, row) => sum + row[component], 0) || 1e-9;
+      return [
+        responsibilities.reduce((sum, row, index) => sum + row[component] * X[index][0], 0) / nk,
+        responsibilities.reduce((sum, row, index) => sum + row[component] * X[index][1], 0) / nk,
+      ];
+    });
+    variances = variances.map((_, component) => {
+      const nk = responsibilities.reduce((sum, row) => sum + row[component], 0) || 1e-9;
+      return [
+        responsibilities.reduce((sum, row, index) => sum + row[component] * (X[index][0] - means[component][0]) ** 2, 0) / nk + 0.05,
+        responsibilities.reduce((sum, row, index) => sum + row[component] * (X[index][1] - means[component][1]) ** 2, 0) / nk + 0.05,
+      ];
+    });
+    weights = weights.map((_, component) => responsibilities.reduce((sum, row) => sum + row[component], 0) / X.length);
+    const ll = X.reduce((sum, point) => {
+      const density = means.reduce((inner, mean, component) => inner + weights[component] * gaussianPdf2d(point, mean, variances[component]), 0);
+      return sum + Math.log(density + 1e-9);
+    }, 0);
+    logLikelihood.push({ iteration: iteration + 1, logLikelihood: Number(ll.toFixed(3)) });
+  }
+
+  return {
+    centers: means,
+    assignments: responsibilities.map(row => row.reduce((best, value, index) => value > row[best] ? index : best, 0)),
+    probs: responsibilities,
+    variances,
+    weights,
+    ellipses: means.flatMap((mean, component) => [1, 2].map(scale => ({
+      component,
+      scale,
+      x: mean[0],
+      y: mean[1],
+      rx: Math.sqrt(variances[component][0]) * scale,
+      ry: Math.sqrt(variances[component][1]) * scale,
+    }))),
+    logLikelihood,
+    score: logLikelihood.at(-1)?.logLikelihood ?? 0,
+  };
 }
 
 function hierarchical(X: number[][], threshold: number) {
-  const assignments = Array(X.length).fill(-1);
-  let cluster = 0;
-  X.forEach((point, i) => {
-    if (assignments[i] >= 0) return;
-    assignments[i] = cluster;
-    X.forEach((other, j) => { if (dist(point, other) <= threshold) assignments[j] = cluster; });
-    cluster++;
+  type Cluster = { id: number; members: number[] };
+  let nextId = X.length;
+  let clusters: Cluster[] = X.map((_, index) => ({ id: index, members: [index] }));
+  const merges: Array<{ left: number; right: number; id: number; distance: number; size: number }> = [];
+  const linkageDistance = (a: Cluster, b: Cluster) => {
+    const pairs = a.members.flatMap(i => b.members.map(j => dist(X[i], X[j])));
+    return pairs.reduce((sum, value) => sum + value, 0) / pairs.length;
+  };
+
+  while (clusters.length > 1) {
+    let best: [number, number, number] = [0, 1, Infinity];
+    for (let i = 0; i < clusters.length; i++) {
+      for (let j = i + 1; j < clusters.length; j++) {
+        const d = linkageDistance(clusters[i], clusters[j]);
+        if (d < best[2]) best = [i, j, d];
+      }
+    }
+    const [i, j, distanceValue] = best;
+    const left = clusters[i];
+    const right = clusters[j];
+    const merged = { id: nextId++, members: [...left.members, ...right.members] };
+    merges.push({ left: left.id, right: right.id, id: merged.id, distance: Number(distanceValue.toFixed(3)), size: merged.members.length });
+    clusters = clusters.filter((_, index) => index !== i && index !== j);
+    clusters.push(merged);
+  }
+
+  const parent = Array.from({ length: X.length }, (_, index) => index);
+  const find = (value: number): number => parent[value] === value ? value : (parent[value] = find(parent[value]));
+  const unite = (a: number, b: number) => {
+    const ra = find(a), rb = find(b);
+    if (ra !== rb) parent[rb] = ra;
+  };
+  const membersById = new Map<number, number[]>(X.map((_, index) => [index, [index]]));
+  merges.forEach(merge => {
+    const members = [...(membersById.get(merge.left) ?? []), ...(membersById.get(merge.right) ?? [])];
+    membersById.set(merge.id, members);
+    if (merge.distance <= threshold) {
+      const [first, ...rest] = members;
+      rest.forEach(member => unite(first, member));
+    }
   });
-  return { centers: Array.from({ length: cluster }, (_, c) => {
-    const members = X.filter((_, i) => assignments[i] === c);
-    return [members.reduce((s, p) => s + p[0], 0) / members.length, members.reduce((s, p) => s + p[1], 0) / members.length];
-  }), assignments, score: cluster };
+  const roots = [...new Set(parent.map((_, index) => find(index)))];
+  const rootToCluster = new Map(roots.map((root, index) => [root, index]));
+  const assignments = parent.map((_, index) => rootToCluster.get(find(index)) ?? 0);
+  const centers = Array.from({ length: roots.length }, (_, cluster) => {
+    const members = X.filter((_, index) => assignments[index] === cluster);
+    return [members.reduce((sum, point) => sum + point[0], 0) / members.length, members.reduce((sum, point) => sum + point[1], 0) / members.length];
+  });
+  return { centers, assignments, score: roots.length, merges };
 }
 
 function spectral(X: number[][], k: number) {
@@ -100,7 +190,7 @@ const copy = {
   kmedoids: ['K-Medoids', 'Real medoid selection, distance matrix, swap-style refinement, and outlier-robust cost.'],
   hierarchical: ['Hierarchical Clustering', 'Agglomerative-style threshold grouping with dendrogram-inspired distance cuts.'],
   meanshift: ['Mean Shift', 'Bandwidth-based mean shift vectors, mode seeking, and discovered centers.'],
-  gmm: ['Gaussian Mixture Model', 'Educational EM-style soft assignments and probability responsibilities.'],
+  gmm: ['Gaussian Mixture Model', 'EM responsibilities, component weights, covariance ellipses, and log-likelihood convergence.'],
   spectral: ['Spectral Clustering', 'Similarity-inspired embedding followed by clustering in transformed space.'],
   optics: ['OPTICS', 'Reachability/core distance ordering for variable-density cluster inspection.'],
 } as const;
@@ -115,13 +205,21 @@ export default function ClusteringWorkbench({ mode }: { mode: ClusterMode }) {
     if (mode === 'kmedoids') return kMedoids(X, k);
     if (mode === 'hierarchical') return hierarchical(X, bandwidth);
     if (mode === 'meanshift') return meanShift(X, bandwidth);
-    if (mode === 'gmm') return gaussianSoft(X, k);
+    if (mode === 'gmm') return gaussianEM(X, k);
     if (mode === 'spectral') return spectral(X, k);
     return optics(X, bandwidth);
   }, [X, k, bandwidth, mode]);
   const plot = points.map((p, i) => ({ ...p, cluster: result.assignments[i] ?? 0 }));
   const [title, subtitle] = copy[mode];
   const reach = 'reach' in result ? result.reach : [];
+  const bounds = {
+    minX: Math.min(...X.map(point => point[0])) - 1,
+    maxX: Math.max(...X.map(point => point[0])) + 1,
+    minY: Math.min(...X.map(point => point[1])) - 1,
+    maxY: Math.max(...X.map(point => point[1])) + 1,
+  };
+  const mapX = (x: number) => ((x - bounds.minX) / (bounds.maxX - bounds.minX)) * 100;
+  const mapY = (y: number) => 100 - ((y - bounds.minY) / (bounds.maxY - bounds.minY)) * 100;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4">
@@ -144,8 +242,48 @@ export default function ClusteringWorkbench({ mode }: { mode: ClusterMode }) {
           <Card title="Cluster Visualization">
             <ResponsiveContainer width="100%" height={360}><ScatterChart><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="x" type="number" /><YAxis dataKey="y" type="number" /><Tooltip /><Scatter data={plot}>{plot.map((p, i) => <Cell key={i} fill={colors[Math.abs(p.cluster) % colors.length]} />)}</Scatter><Scatter data={result.centers.map((c, i) => ({ x: c[0], y: c[1], cluster: i }))} fill="#111827" shape="star" /></ScatterChart></ResponsiveContainer>
           </Card>
+          {mode === 'gmm' && 'ellipses' in result && (
+            <Card title="Gaussian Component Ellipses" subtitle="1σ and 2σ contours estimated from EM covariance updates">
+              <svg viewBox="0 0 100 70" className="h-72 w-full rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-950">
+                {(result.ellipses as Array<{ component: number; scale: number; x: number; y: number; rx: number; ry: number }>).map(ellipse => (
+                  <ellipse
+                    key={`${ellipse.component}-${ellipse.scale}`}
+                    cx={mapX(ellipse.x)}
+                    cy={(mapY(ellipse.y) / 100) * 70}
+                    rx={(ellipse.rx / (bounds.maxX - bounds.minX)) * 100}
+                    ry={(ellipse.ry / (bounds.maxY - bounds.minY)) * 70}
+                    fill={colors[ellipse.component % colors.length]}
+                    fillOpacity={ellipse.scale === 1 ? 0.12 : 0.05}
+                    stroke={colors[ellipse.component % colors.length]}
+                    strokeWidth={ellipse.scale === 1 ? 0.8 : 0.45}
+                  />
+                ))}
+                {plot.map((point, index) => (
+                  <circle key={index} cx={mapX(point.x)} cy={(mapY(point.y) / 100) * 70} r={0.8} fill={colors[Math.abs(point.cluster) % colors.length]} />
+                ))}
+              </svg>
+            </Card>
+          )}
           {mode === 'optics' ? (
             <Card title="Reachability Ordering"><ResponsiveContainer width="100%" height={260}><LineChart data={reach}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="order" /><YAxis /><Tooltip /><Line dataKey="reachability" stroke="#dc2626" strokeWidth={2} /></LineChart></ResponsiveContainer></Card>
+          ) : mode === 'gmm' && 'logLikelihood' in result ? (
+            <Card title="EM Log-Likelihood Convergence"><ResponsiveContainer width="100%" height={260}><LineChart data={result.logLikelihood as Array<{ iteration: number; logLikelihood: number }>}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="iteration" /><YAxis /><Tooltip /><Line dataKey="logLikelihood" stroke="#2563eb" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></Card>
+          ) : mode === 'hierarchical' && 'merges' in result ? (
+            <Card title="Agglomerative Merge Tree" subtitle="Horizontal guide shows the current cut-height threshold">
+              <svg viewBox="0 0 100 60" className="h-64 w-full rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-950">
+                <line x1={0} x2={100} y1={60 - Math.min(55, bandwidth * 22)} y2={60 - Math.min(55, bandwidth * 22)} stroke="#dc2626" strokeDasharray="4 3" />
+                {(result.merges as Array<{ left: number; right: number; id: number; distance: number; size: number }>).slice(-30).map((merge, index, arr) => {
+                  const x = 5 + (index / Math.max(1, arr.length - 1)) * 90;
+                  const y = 58 - Math.min(55, merge.distance * 22);
+                  return (
+                    <g key={merge.id}>
+                      <line x1={x} x2={x} y1={58} y2={y} stroke="#64748b" strokeWidth={0.5} />
+                      <circle cx={x} cy={y} r={1.2 + Math.min(2.5, merge.size / 30)} fill={colors[index % colors.length]} fillOpacity={0.75} />
+                    </g>
+                  );
+                })}
+              </svg>
+            </Card>
           ) : (
             <MatrixViewer title="Distance / Responsibility Matrix Preview" matrix={mode === 'gmm' && 'probs' in result ? (result.probs as number[][]).slice(0, 8) : distanceMatrix(X.slice(0, 8))} />
           )}

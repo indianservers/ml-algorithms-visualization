@@ -1,415 +1,342 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Scatter, ComposedChart, ReferenceLine } from 'recharts';
+import { ChevronRight, RotateCcw, TrendingDown } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
-import { LearningPanel } from '../../../components/ml/LearningPanel';
 import { MetricsPanel } from '../../../components/ml/MetricsPanel';
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  ReferenceLine, Scatter, ComposedChart,
-} from 'recharts';
-import { optimizeGD, presetFunctions } from '../../../lib/algorithms/optimization/gradientDescent';
-import type { GDStep } from '../../../lib/algorithms/optimization/gradientDescent';
+import { LearningPanel } from '../../../components/ml/LearningPanel';
 import { linspace } from '../../../lib/math/statistics';
-import { TrendingDown, Play, ChevronRight, AlertTriangle } from 'lucide-react';
 
-type FnKey = keyof typeof presetFunctions;
+type FnKey = 'quadratic' | 'cubic' | 'sine';
+type OptimizerKey = 'gd' | 'sgd' | 'momentum' | 'adam';
 
-const FN_COLORS = ['#3b82f6', '#10b981', '#f59e0b'];
+type OptimizerStep = {
+  iter: number;
+  x: number;
+  loss: number;
+  gradient: number;
+  update: number;
+  velocity: number;
+  m: number;
+  v: number;
+  mHat: number;
+  vHat: number;
+};
 
-// ── Render the function curve as chart data ───────────────────────────────
-function buildCurve(key: FnKey, n = 200) {
-  const { fn, domain } = presetFunctions[key];
-  return linspace(domain[0], domain[1], n).map(x => ({ x: parseFloat(x.toFixed(4)), y: fn(x) }));
+const optimizerLabels: Record<OptimizerKey, string> = {
+  gd: 'Vanilla GD',
+  sgd: 'SGD',
+  momentum: 'Momentum',
+  adam: 'Adam',
+};
+
+const optimizerColors: Record<OptimizerKey, string> = {
+  gd: '#2563eb',
+  sgd: '#f59e0b',
+  momentum: '#7c3aed',
+  adam: '#059669',
+};
+
+const functions: Record<FnKey, { label: string; domain: [number, number]; fn: (x: number) => number; grad: (x: number) => number }> = {
+  quadratic: {
+    label: 'Convex bowl: f(x) = (x - 1)^2 + 0.5',
+    domain: [-4, 5],
+    fn: x => (x - 1) ** 2 + 0.5,
+    grad: x => 2 * (x - 1),
+  },
+  cubic: {
+    label: 'Non-convex curve: f(x) = 0.08x^4 - 0.45x^2 + 0.3x + 2',
+    domain: [-3.5, 3.5],
+    fn: x => 0.08 * x ** 4 - 0.45 * x ** 2 + 0.3 * x + 2,
+    grad: x => 0.32 * x ** 3 - 0.9 * x + 0.3,
+  },
+  sine: {
+    label: 'Wavy loss: f(x) = sin(2x) + 0.12x^2 + 2',
+    domain: [-5, 5],
+    fn: x => Math.sin(2 * x) + 0.12 * x ** 2 + 2,
+    grad: x => 2 * Math.cos(2 * x) + 0.24 * x,
+  },
+};
+
+function sampleGradient(trueGradient: number, x: number, iter: number, batchSize: number) {
+  let total = 0;
+  for (let sample = 0; sample < batchSize; sample++) {
+    total += trueGradient + Math.sin((iter + 1) * (sample + 3) * 1.37 + x * 2.1) * 0.9;
+  }
+  return total / batchSize;
 }
 
-// ── Divergence heuristic ──────────────────────────────────────────────────
-function isDiverging(steps: GDStep[]): boolean {
-  if (steps.length < 5) return false;
-  const last = steps[steps.length - 1];
-  return Math.abs(last.loss) > 1e6 || isNaN(last.loss) || !isFinite(last.loss);
-}
+function runOptimizer(
+  key: OptimizerKey,
+  fn: (x: number) => number,
+  grad: (x: number) => number,
+  x0: number,
+  learningRate: number,
+  maxIter: number,
+  params: { batchSize: number; beta: number; beta1: number; beta2: number; epsilon: number },
+) {
+  const steps: OptimizerStep[] = [];
+  let x = x0;
+  let velocity = 0;
+  let m = 0;
+  let v = 0;
+  for (let iter = 0; iter < maxIter; iter++) {
+    const trueGradient = grad(x);
+    const gradient = key === 'sgd' ? sampleGradient(trueGradient, x, iter, params.batchSize) : trueGradient;
+    let update = learningRate * gradient;
+    let mHat = 0;
+    let vHat = 0;
 
-function isStuck(steps: GDStep[]): boolean {
-  if (steps.length < 30) return false;
-  const recent = steps.slice(-10);
-  const spread = Math.max(...recent.map(s => s.loss)) - Math.min(...recent.map(s => s.loss));
-  return spread < 1e-8;
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-export default function GradientDescentPage() {
-  const [fnKey, setFnKey] = useState<FnKey>('quadratic');
-  const [lr, setLr] = useState(0.1);
-  const [x0, setX0] = useState(3.0);
-  const [maxIter, setMaxIter] = useState(50);
-  const [steps, setSteps] = useState<GDStep[]>([]);
-  const [currentStep, setCurrentStep] = useState(-1);
-  const [compareMode, setCompareMode] = useState(false);
-  const [compareResults, setCompareResults] = useState<{ lr: number; steps: GDStep[] }[]>([]);
-
-  const { fn, grad, domain, label } = presetFunctions[fnKey];
-  const curve = useMemo(() => buildCurve(fnKey), [fnKey]);
-
-  // Run full descent
-  const runGD = useCallback(() => {
-    const result = optimizeGD(fn, grad, x0, lr, maxIter);
-    setSteps(result);
-    setCurrentStep(result.length - 1);
-  }, [fn, grad, x0, lr, maxIter]);
-
-  // Step-by-step
-  const runStep = useCallback(() => {
-    if (steps.length === 0) {
-      const result = optimizeGD(fn, grad, x0, lr, maxIter);
-      setSteps(result);
-      setCurrentStep(0);
-    } else if (currentStep < steps.length - 1) {
-      setCurrentStep(s => s + 1);
+    if (key === 'momentum') {
+      velocity = params.beta * velocity + learningRate * gradient;
+      update = velocity;
+    } else if (key === 'adam') {
+      m = params.beta1 * m + (1 - params.beta1) * gradient;
+      v = params.beta2 * v + (1 - params.beta2) * gradient ** 2;
+      mHat = m / (1 - params.beta1 ** (iter + 1));
+      vHat = v / (1 - params.beta2 ** (iter + 1));
+      update = learningRate * mHat / (Math.sqrt(vHat) + params.epsilon);
     }
-  }, [steps, currentStep, fn, grad, x0, lr, maxIter]);
 
-  const resetAll = () => {
-    setSteps([]);
-    setCurrentStep(-1);
-    setCompareResults([]);
-  };
+    steps.push({ iter, x, loss: fn(x), gradient, update, velocity, m, v, mHat, vHat });
+    x -= update;
+    if (!Number.isFinite(x) || Math.abs(x) > 1e6) break;
+  }
+  return steps;
+}
 
-  // Comparison mode
-  const runComparison = useCallback(() => {
-    const lrs = [0.001, lr, Math.min(lr * 5, 2.0)];
-    const results = lrs.map(l => ({
-      lr: l,
-      steps: optimizeGD(fn, grad, x0, l, maxIter),
+function convergenceStep(steps: OptimizerStep[], threshold = 0.01) {
+  const found = steps.find(step => Math.abs(step.gradient) < threshold);
+  return found ? found.iter + 1 : null;
+}
+
+export default function GradientDescentPage({ initialOptimizer = 'gd' }: { initialOptimizer?: OptimizerKey }) {
+  const [activeOptimizer, setActiveOptimizer] = useState<OptimizerKey>(initialOptimizer);
+  const [fnKey, setFnKey] = useState<FnKey>('quadratic');
+  const [learningRate, setLearningRate] = useState(0.08);
+  const [x0, setX0] = useState(3);
+  const [maxIter, setMaxIter] = useState(70);
+  const [currentStep, setCurrentStep] = useState(24);
+  const [batchSize, setBatchSize] = useState(8);
+  const [beta, setBeta] = useState(0.9);
+  const [beta1, setBeta1] = useState(0.9);
+  const [beta2, setBeta2] = useState(0.99);
+  const [epsilon, setEpsilon] = useState(0.000001);
+
+  const activeFn = functions[fnKey];
+  const curve = useMemo(() => linspace(activeFn.domain[0], activeFn.domain[1], 240).map(x => ({ x, y: activeFn.fn(x) })), [activeFn]);
+  const runs = useMemo(() => {
+    const params = { batchSize, beta, beta1, beta2, epsilon };
+    return (Object.keys(optimizerLabels) as OptimizerKey[]).map(key => ({
+      key,
+      label: optimizerLabels[key],
+      color: optimizerColors[key],
+      steps: runOptimizer(key, activeFn.fn, activeFn.grad, x0, learningRate, maxIter, params),
     }));
-    setCompareResults(results);
-  }, [fn, grad, x0, lr, maxIter]);
+  }, [activeFn, x0, learningRate, maxIter, batchSize, beta, beta1, beta2, epsilon]);
+  const activeRun = runs.find(run => run.key === activeOptimizer) ?? runs[0];
+  const activeStep = activeRun.steps[Math.min(currentStep, activeRun.steps.length - 1)];
+  const convergenceRows = runs.map(run => ({ optimizer: run.label, steps: convergenceStep(run.steps), finalLoss: run.steps.at(-1)?.loss ?? 0, color: run.color }));
 
-  const displayedSteps = steps.slice(0, currentStep + 1);
-  const latestStep = displayedSteps[displayedSteps.length - 1];
-
-  // Path dots for the loss surface chart (current run)
-  const pathDots = displayedSteps.map(s => ({ x: s.x, y: s.y }));
-
-  // Convergence chart
-  const convergenceData = displayedSteps.map(s => ({ iter: s.iter, loss: s.loss }));
-
-  // Warnings
-  const divWarning = steps.length > 0 && isDiverging(steps);
-  const slowWarning = steps.length > 0 && isStuck(steps) && !divWarning;
+  const reset = () => setCurrentStep(0);
+  const stepForward = () => setCurrentStep(step => Math.min(step + 1, maxIter - 1));
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto px-4 py-6">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6">
       <PageHeader
-        title="Gradient Descent Explorer"
-        subtitle="Visualise how gradient descent optimises 1-D functions — tune learning rate, starting point and iterations."
-        badge="Beginner"
+        title="Optimizer Suite"
+        subtitle="Compare Vanilla GD, SGD, Momentum, and Adam on the same loss curve with live optimizer internals."
+        badge="Intermediate"
         category="Optimization"
         icon={<TrendingDown size={22} />}
       />
 
-      <InfoBox type="info" title="Update Rule">
-        <span className="font-mono">x_new = x − α · f′(x)</span>
-        <span className="ml-4 text-gray-600 dark:text-gray-300">
-          where α is the learning rate and f′(x) is the gradient.
-        </span>
+      <InfoBox type="info" title="Shared loss, different update rules">
+        All four optimizers start from the same point. The chart overlays their paths so you can see why stochastic gradients wander, momentum smooths motion, and Adam adapts each step using first and second moments.
       </InfoBox>
 
-      {divWarning && (
-        <InfoBox type="error" title="Divergence detected!">
-          The learning rate is too large. The optimiser is overshooting and the loss is exploding.
-          Try reducing α.
-        </InfoBox>
-      )}
-      {slowWarning && (
-        <InfoBox type="warning" title="Slow convergence">
-          The loss is barely changing. Try a larger learning rate or more iterations.
-        </InfoBox>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ── Controls ── */}
+      <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
         <div className="space-y-4">
-          <Card title="Loss Function">
-            {(Object.keys(presetFunctions) as FnKey[]).map(k => (
-              <label key={k} className="flex items-center gap-2 py-1.5 cursor-pointer">
-                <input
-                  type="radio" name="fn" value={k}
-                  checked={fnKey === k}
-                  onChange={() => { setFnKey(k); resetAll(); }}
-                  className="accent-blue-600"
-                />
-                <span className="text-xs text-gray-700 dark:text-gray-300">
-                  {presetFunctions[k].label}
-                </span>
+          <Card title="Optimizer Tabs">
+            <div className="grid grid-cols-2 gap-2">
+              {(Object.keys(optimizerLabels) as OptimizerKey[]).map(key => (
+                <button
+                  key={key}
+                  onClick={() => setActiveOptimizer(key)}
+                  className={`rounded-lg border px-3 py-2 text-sm font-bold transition-colors ${activeOptimizer === key ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950/40 dark:text-blue-200' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'}`}
+                >
+                  {optimizerLabels[key]}
+                </button>
+              ))}
+            </div>
+          </Card>
+
+          <Card title="Shared Controls">
+            <div className="space-y-4 text-sm">
+              <label className="block font-semibold text-gray-700 dark:text-gray-200">Function
+                <select value={fnKey} onChange={event => { setFnKey(event.target.value as FnKey); reset(); }} className="mt-1 w-full rounded border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900">
+                  {(Object.keys(functions) as FnKey[]).map(key => <option key={key} value={key}>{functions[key].label}</option>)}
+                </select>
               </label>
-            ))}
+              <label className="block font-semibold text-gray-700 dark:text-gray-200">Learning rate: {learningRate.toFixed(3)}
+                <input type="range" min={0.001} max={0.4} step={0.001} value={learningRate} onChange={event => setLearningRate(Number(event.target.value))} className="w-full accent-blue-600" />
+              </label>
+              <label className="block font-semibold text-gray-700 dark:text-gray-200">Starting point: {x0.toFixed(2)}
+                <input type="range" min={activeFn.domain[0]} max={activeFn.domain[1]} step={0.05} value={x0} onChange={event => { setX0(Number(event.target.value)); reset(); }} className="w-full accent-blue-600" />
+              </label>
+              <label className="block font-semibold text-gray-700 dark:text-gray-200">Max iterations: {maxIter}
+                <input type="range" min={10} max={200} step={5} value={maxIter} onChange={event => setMaxIter(Number(event.target.value))} className="w-full accent-blue-600" />
+              </label>
+            </div>
           </Card>
 
-          <Card title="Parameters">
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Learning Rate (α) = {lr.toFixed(4)}
+          <Card title={`${optimizerLabels[activeOptimizer]} Internals`}>
+            <div className="space-y-4 text-sm">
+              {activeOptimizer === 'sgd' && (
+                <label className="block font-semibold text-gray-700 dark:text-gray-200">Mini-batch size: {batchSize}
+                  <input type="range" min={1} max={32} value={batchSize} onChange={event => setBatchSize(Number(event.target.value))} className="w-full accent-amber-500" />
                 </label>
-                <input type="range" min={0.001} max={1.0} step={0.001} value={lr}
-                  onChange={e => { setLr(Number(e.target.value)); resetAll(); }}
-                  className="w-full accent-blue-600 mt-1" />
-                <div className="flex justify-between text-[10px] text-gray-400">
-                  <span>0.001</span><span>1.0</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Starting Point (x₀) = {x0.toFixed(2)}
+              )}
+              {activeOptimizer === 'momentum' && (
+                <label className="block font-semibold text-gray-700 dark:text-gray-200">Momentum beta: {beta.toFixed(2)}
+                  <input type="range" min={0.5} max={0.99} step={0.01} value={beta} onChange={event => setBeta(Number(event.target.value))} className="w-full accent-purple-600" />
                 </label>
-                <input
-                  type="range"
-                  min={domain[0]}
-                  max={domain[1]}
-                  step={0.1}
-                  value={x0}
-                  onChange={e => { setX0(Number(e.target.value)); resetAll(); }}
-                  className="w-full accent-blue-600 mt-1"
-                />
-                <div className="flex justify-between text-[10px] text-gray-400">
-                  <span>{domain[0]}</span><span>{domain[1]}</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Max Iterations = {maxIter}
-                </label>
-                <input type="range" min={10} max={200} step={5} value={maxIter}
-                  onChange={e => { setMaxIter(Number(e.target.value)); resetAll(); }}
-                  className="w-full accent-blue-600 mt-1" />
+              )}
+              {activeOptimizer === 'adam' && (
+                <>
+                  <label className="block font-semibold text-gray-700 dark:text-gray-200">Beta1: {beta1.toFixed(2)}
+                    <input type="range" min={0.5} max={0.99} step={0.01} value={beta1} onChange={event => setBeta1(Number(event.target.value))} className="w-full accent-green-600" />
+                  </label>
+                  <label className="block font-semibold text-gray-700 dark:text-gray-200">Beta2: {beta2.toFixed(3)}
+                    <input type="range" min={0.8} max={0.999} step={0.001} value={beta2} onChange={event => setBeta2(Number(event.target.value))} className="w-full accent-green-600" />
+                  </label>
+                  <label className="block font-semibold text-gray-700 dark:text-gray-200">Epsilon: {epsilon.toExponential(0)}
+                    <input type="range" min={-8} max={-3} step={1} value={Math.round(Math.log10(epsilon))} onChange={event => setEpsilon(10 ** Number(event.target.value))} className="w-full accent-green-600" />
+                  </label>
+                </>
+              )}
+              <div className="grid grid-cols-2 gap-2 rounded-lg bg-gray-50 p-3 font-mono text-xs dark:bg-gray-800">
+                <span>grad: {activeStep?.gradient.toFixed(5) ?? '-'}</span>
+                <span>update: {activeStep?.update.toFixed(5) ?? '-'}</span>
+                <span>v: {activeStep?.velocity.toFixed(5) ?? '-'}</span>
+                <span>m: {activeStep?.m.toFixed(5) ?? '-'}</span>
+                <span>adam v: {activeStep?.v.toFixed(5) ?? '-'}</span>
+                <span>m_hat: {activeStep?.mHat.toFixed(5) ?? '-'}</span>
+                <span>v_hat: {activeStep?.vHat.toFixed(5) ?? '-'}</span>
+                <span>x: {activeStep?.x.toFixed(5) ?? '-'}</span>
               </div>
             </div>
           </Card>
 
-          <Card title="Run Controls">
-            <div className="space-y-2">
-              <button
-                onClick={runGD}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg"
-              >
-                <Play size={14} /> Run Full Descent
-              </button>
-              <button
-                onClick={runStep}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium rounded-lg"
-              >
-                <ChevronRight size={14} /> Step ({currentStep + 1} / {steps.length || '?'})
-              </button>
-              <button
-                onClick={resetAll}
-                className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-lg"
-              >
-                Reset
-              </button>
-              <div className="pt-1 border-t border-gray-100 dark:border-gray-700">
-                <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-600 dark:text-gray-400">
-                  <input
-                    type="checkbox"
-                    checked={compareMode}
-                    onChange={e => { setCompareMode(e.target.checked); setCompareResults([]); }}
-                    className="accent-blue-600"
-                  />
-                  Comparison Mode (3 LRs)
-                </label>
-                {compareMode && (
-                  <button
-                    onClick={runComparison}
-                    className="mt-2 w-full flex items-center justify-center gap-1 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs rounded-lg"
-                  >
-                    <AlertTriangle size={12} /> Run Comparison
-                  </button>
-                )}
+          <Card title="Step Controls">
+            <div className="space-y-3">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">Visible step: {Math.min(currentStep + 1, maxIter)} / {maxIter}
+                <input type="range" min={0} max={maxIter - 1} value={Math.min(currentStep, maxIter - 1)} onChange={event => setCurrentStep(Number(event.target.value))} className="w-full accent-blue-600" />
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={stepForward} className="inline-flex min-h-10 items-center justify-center gap-2 rounded bg-blue-600 px-3 text-sm font-bold text-white hover:bg-blue-700">
+                  <ChevronRight size={14} /> Step
+                </button>
+                <button onClick={reset} className="inline-flex min-h-10 items-center justify-center gap-2 rounded border border-gray-200 px-3 text-sm font-bold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">
+                  <RotateCcw size={14} /> Reset
+                </button>
               </div>
             </div>
           </Card>
-
-          {/* Step detail */}
-          {latestStep && (
-            <MetricsPanel
-              title={`Step ${latestStep.iter + 1} Details`}
-              metrics={[
-                { label: 'x', value: latestStep.x, format: 'fixed4' },
-                { label: 'f(x)', value: latestStep.loss, format: 'fixed4' },
-                { label: 'Gradient f′(x)', value: latestStep.gradient, format: 'fixed4',
-                  color: Math.abs(latestStep.gradient) < 0.01 ? 'green' : 'default' },
-                { label: 'Iterations', value: displayedSteps.length, format: 'number' },
-              ]}
-            />
-          )}
         </div>
 
-        {/* ── Charts ── */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Loss surface + path */}
-          <Card title={`Loss Surface: ${label}`} subtitle="Dots show the optimisation path">
-            <ResponsiveContainer width="100%" height={280}>
+        <div className="space-y-4">
+          <Card title="Shared Loss Curve and Optimizer Trajectories" subtitle="All paths use the same function, start, learning rate, and iteration limit.">
+            <ResponsiveContainer width="100%" height={360}>
               <ComposedChart>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis
-                  dataKey="x"
-                  type="number"
-                  domain={[domain[0], domain[1]]}
-                  tick={{ fontSize: 10 }}
-                  label={{ value: 'x', position: 'insideBottomRight', fontSize: 10 }}
-                />
+                <XAxis dataKey="x" type="number" domain={activeFn.domain} tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v: number) => v.toFixed(4)} labelFormatter={l => `x=${Number(l).toFixed(3)}`} />
-
-                {/* Function curve */}
-                <Line
-                  data={curve}
-                  type="monotone"
-                  dataKey="y"
-                  stroke="#94a3b8"
-                  strokeWidth={2}
-                  dot={false}
-                  name={label}
-                />
-
-                {/* Path scatter */}
-                {pathDots.length > 0 && (
+                <Tooltip formatter={(value: number) => value.toFixed(4)} labelFormatter={label => `x=${Number(label).toFixed(3)}`} />
+                <Line data={curve} type="monotone" dataKey="y" stroke="#94a3b8" strokeWidth={2} dot={false} name={activeFn.label} />
+                <ReferenceLine x={x0} stroke="#64748b" strokeDasharray="4 2" label={{ value: 'start', fontSize: 10 }} />
+                {runs.map(run => (
                   <Scatter
-                    data={pathDots}
-                    fill="#3b82f6"
-                    opacity={0.8}
-                    name="Path"
+                    key={run.key}
+                    data={run.steps.slice(0, Math.min(currentStep + 1, run.steps.length)).map(step => ({ x: step.x, y: step.loss }))}
+                    fill={run.color}
+                    name={run.label}
+                    opacity={run.key === activeOptimizer ? 0.95 : 0.52}
                   />
-                )}
-
-                {/* Starting point vertical */}
-                {steps.length > 0 && (
-                  <ReferenceLine x={steps[0].x} stroke="#f59e0b" strokeDasharray="4 2" label={{ value: 'x₀', fontSize: 9, fill: '#f59e0b' }} />
-                )}
+                ))}
               </ComposedChart>
             </ResponsiveContainer>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {runs.map(run => (
+                <span key={run.key} className="inline-flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: run.color }} />
+                  {run.label}
+                </span>
+              ))}
+            </div>
           </Card>
 
-          {/* Convergence chart */}
-          <Card title="Convergence: Loss vs Iteration">
-            {convergenceData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={convergenceData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="iter" tick={{ fontSize: 10 }} label={{ value: 'Iteration', position: 'insideBottom', offset: -2, fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={(v: number) => v.toFixed(4)} />
-                  <ReferenceLine y={0} stroke="#6b7280" strokeDasharray="4 2" />
-                  <Line type="monotone" dataKey="loss" stroke="#3b82f6" strokeWidth={2} dot={false} name="Loss f(x)" />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-40 flex items-center justify-center text-sm text-gray-400">
-                Run gradient descent to see convergence.
-              </div>
-            )}
-          </Card>
-
-          {/* Comparison mode */}
-          {compareMode && compareResults.length > 0 && (
-            <Card title="Comparison: 3 Learning Rates" subtitle="Convergence curves overlaid">
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="iter" type="number" tick={{ fontSize: 10 }} label={{ value: 'Iteration', position: 'insideBottom', offset: -2, fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={(v: number) => v.toFixed(4)} />
-                  {compareResults.map(({ lr: l, steps: s }, i) => (
-                    <Line
-                      key={l}
-                      data={s.map(step => ({ iter: step.iter, loss: step.loss }))}
-                      type="monotone"
-                      dataKey="loss"
-                      stroke={FN_COLORS[i]}
-                      strokeWidth={2}
-                      dot={false}
-                      name={`α=${l.toFixed(3)}`}
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-              <div className="flex gap-4 mt-2 justify-center">
-                {compareResults.map(({ lr: l }, i) => (
-                  <span key={l} className="flex items-center gap-1 text-xs">
-                    <span className="w-4 h-1 inline-block rounded" style={{ background: FN_COLORS[i] }} />
-                    α={l.toFixed(3)}
-                    {isDiverging(compareResults[i].steps) ? ' ⚠ diverged' : ''}
-                  </span>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <MetricsPanel title="Active Step Metrics" metrics={[
+              { label: 'Step', value: activeStep ? activeStep.iter + 1 : 0, format: 'number' },
+              { label: 'x', value: activeStep?.x ?? 0, format: 'fixed4' },
+              { label: 'Loss', value: activeStep?.loss ?? 0, format: 'fixed4', color: (activeStep?.loss ?? 99) < 0.05 ? 'green' : 'default' },
+              { label: 'Gradient', value: activeStep?.gradient ?? 0, format: 'fixed4', color: Math.abs(activeStep?.gradient ?? 1) < 0.01 ? 'green' : 'default' },
+            ]} />
+            <Card title="Convergence Step Counter">
+              <div className="space-y-2">
+                {convergenceRows.map(row => (
+                  <div key={row.optimizer} className="rounded border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
+                    <div className="flex items-center justify-between text-sm font-bold text-gray-900 dark:text-white">
+                      <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: row.color }} /> {row.optimizer}</span>
+                      <span>{row.steps ? `${row.steps} steps` : 'not reached'}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Final loss {row.finalLoss.toFixed(5)}</p>
+                  </div>
                 ))}
               </div>
             </Card>
-          )}
+          </div>
 
-          {/* Step trail table */}
-          {displayedSteps.length > 0 && (
-            <Card title="Optimisation Trail" collapsible>
-              <div className="overflow-x-auto max-h-48 overflow-y-auto">
-                <table className="text-xs w-full font-mono">
-                  <thead className="sticky top-0 bg-white dark:bg-gray-800">
-                    <tr className="bg-gray-50 dark:bg-gray-700/50">
-                      <th className="px-3 py-1.5 text-left">Iter</th>
-                      <th className="px-3 py-1.5 text-right">x</th>
-                      <th className="px-3 py-1.5 text-right">f(x)</th>
-                      <th className="px-3 py-1.5 text-right">f′(x)</th>
+          <Card title="Optimizer Trail Table" collapsible>
+            <div className="max-h-64 overflow-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-white dark:bg-gray-900">
+                  <tr className="border-b border-gray-200 text-left dark:border-gray-700">
+                    <th className="p-2">Step</th>
+                    <th className="p-2 text-right">x</th>
+                    <th className="p-2 text-right">loss</th>
+                    <th className="p-2 text-right">grad</th>
+                    <th className="p-2 text-right">update</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeRun.steps.slice(0, Math.min(currentStep + 1, activeRun.steps.length)).map(step => (
+                    <tr key={step.iter} className="border-b border-gray-100 font-mono dark:border-gray-800">
+                      <td className="p-2">{step.iter + 1}</td>
+                      <td className="p-2 text-right">{step.x.toFixed(5)}</td>
+                      <td className="p-2 text-right">{step.loss.toFixed(5)}</td>
+                      <td className="p-2 text-right">{step.gradient.toFixed(5)}</td>
+                      <td className="p-2 text-right">{step.update.toFixed(5)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {displayedSteps.map((s, i) => (
-                      <tr
-                        key={i}
-                        className={`border-t border-gray-100 dark:border-gray-700/50 ${
-                          i === displayedSteps.length - 1 ? 'bg-blue-50 dark:bg-blue-900/20 font-bold' : ''
-                        }`}
-                      >
-                        <td className="px-3 py-1">{s.iter + 1}</td>
-                        <td className="px-3 py-1 text-right">{s.x.toFixed(5)}</td>
-                        <td className="px-3 py-1 text-right">{s.loss.toFixed(5)}</td>
-                        <td className={`px-3 py-1 text-right ${Math.abs(s.gradient) < 0.01 ? 'text-green-600' : ''}`}>
-                          {s.gradient.toFixed(5)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         </div>
       </div>
 
-      {/* Learning Notes */}
-      <LearningPanel
-        sections={[
-          {
-            title: 'Gradient Descent Intuition',
-            content: (
-              <p>Gradient descent iteratively moves x in the direction opposite to the gradient (steepest descent) until it reaches a minimum. The update x ← x − α·f′(x) is repeated until convergence.</p>
-            ),
-          },
-          {
-            title: 'Learning Rate Effects',
-            content: (
-              <ul className="list-disc ml-4 space-y-1">
-                <li><strong>Too small</strong>: many iterations needed, may get stuck near start.</li>
-                <li><strong>Just right</strong>: smooth convergence to minimum.</li>
-                <li><strong>Too large</strong>: overshoots the minimum, may oscillate or diverge.</li>
-              </ul>
-            ),
-          },
-          {
-            title: 'Local vs Global Minima',
-            content: (
-              <p>Quadratic and bowl functions have a single global minimum. Cubic and sine functions have local minima — gradient descent may converge to a local minimum depending on the starting point x₀.</p>
-            ),
-          },
-        ]}
-      />
+      <LearningPanel sections={[
+        {
+          title: 'What changed from vanilla gradient descent?',
+          content: <p>SGD estimates the gradient from a noisy mini-batch. Momentum keeps a velocity term so updates continue in consistent directions. Adam keeps bias-corrected first and second moments, then scales the update by estimated gradient variance.</p>,
+        },
+        {
+          title: 'When to use each optimizer',
+          content: <p>Vanilla GD is easiest to understand, SGD is useful for large datasets, Momentum helps with narrow valleys, and Adam is often a strong default when gradients vary widely by parameter.</p>,
+        },
+      ]} />
     </div>
   );
 }

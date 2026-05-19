@@ -154,6 +154,7 @@ const SavedExperimentsPage = lazy(() => import('../pages/algorithms/lab/SavedExp
 const DatasetManagerPage = lazy(() => import('../pages/algorithms/lab/DatasetManagerPage'));
 const ReportBuilderPage = lazy(() => import('../pages/algorithms/lab/ReportBuilderPage'));
 const ArchitectureFlowLabPage = lazy(() => import('../pages/algorithms/lab/ArchitectureFlowLabPage'));
+const TrainYourModelPage = lazy(() => import('../pages/algorithms/lab/TrainYourModelPage'));
 
 export const router = createBrowserRouter([
   {
@@ -246,6 +247,7 @@ export const router = createBrowserRouter([
       { path: 'ml/nlp/audio-classification', element: <AudioClassificationPage /> },
       // Computer Vision
       { path: 'ml/computer-vision/image-classification', element: <ImageClassificationPage /> },
+      { path: 'ml/computer-vision/audio-classification', element: <AudioClassificationPage /> },
       { path: 'ml/computer-vision/hand-gesture-recognition', element: <HandGestureRecognitionPage /> },
       { path: 'ml/computer-vision/pose-detection', element: <PoseDetectionPage /> },
       { path: 'ml/computer-vision/person-segmentation', element: <PersonSegmentationPage /> },
@@ -293,6 +295,7 @@ export const router = createBrowserRouter([
       { path: 'ml/lab/dataset-manager', element: <DatasetManagerPage /> },
       { path: 'ml/lab/report-builder', element: <ReportBuilderPage /> },
       { path: 'ml/lab/architecture-flow', element: <ArchitectureFlowLabPage /> },
+      { path: 'ml/lab/train-your-model', element: <TrainYourModelPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

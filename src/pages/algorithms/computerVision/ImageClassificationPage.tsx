@@ -2,16 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as mobilenet from '@tensorflow-models/mobilenet';
 import * as tf from '@tensorflow/tfjs';
 import { Camera, Circle, Download, FileImage, FolderOpen, Layers, Play, Plus, RotateCcw, Trash2, Video } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
 import { MetricsPanel } from '../../../components/ml/MetricsPanel';
 import { stopMediaElementStream, stopMediaStream } from '../../../lib/media/streams';
+import { generateExperimentId, saveModelMetadata } from '../../../stores/experimentStore';
 
 type ClassItem = { id: string; name: string; color: string };
 type ExampleItem = { id: string; classId: string; data: Float32Array; preview: string };
 type Prediction = { classId: string; name: string; probability: number; color: string };
 type TrainPoint = { epoch: number; loss: number; accuracy: number };
+type ConfusionReport = { matrix: number[][]; total: number; classMetrics: Array<{ classId: string; precision: number; recall: number; f1: number }>; worstPair: { actual: string; predicted: string; count: number } | null };
 
 const IMAGE_SIZE = 64;
 const CAPTURE_INTERVAL_MS = 45;
@@ -73,6 +75,10 @@ function downloadJson(filename: string, payload: unknown) {
   URL.revokeObjectURL(url);
 }
 
+function timestampNow() {
+  return Date.now();
+}
+
 export default function ImageClassificationPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -93,8 +99,12 @@ export default function ImageClassificationPage() {
   const [learningRate, setLearningRate] = useState(0.001);
   const [batchSize, setBatchSize] = useState(16);
   const [training, setTraining] = useState(false);
+  const [extractorReady, setExtractorReady] = useState(false);
+  const [modelReady, setModelReady] = useState(false);
   const [history, setHistory] = useState<TrainPoint[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [confidenceThreshold, setConfidenceThreshold] = useState(0.7);
+  const [confusionReport, setConfusionReport] = useState<ConfusionReport | null>(null);
   const [status, setStatus] = useState('Start the camera, hold a class button to collect examples, then train.');
 
   useEffect(() => {
@@ -115,16 +125,18 @@ export default function ImageClassificationPage() {
     examples.filter(example => example.classId === item.id).length,
   ])), [classes, examples]);
 
-  const readyToTrain = classes.length >= 2 && classes.every(item => (sampleCounts[item.id] ?? 0) >= 10) && !training && !!featureExtractorRef.current;
+  const readyToTrain = classes.length >= 2 && classes.every(item => (sampleCounts[item.id] ?? 0) >= 10) && !training && extractorReady;
   const latest = history[history.length - 1];
   const totalSamples = examples.length;
   const bestPrediction = predictions[0];
+  const predictedLabel = bestPrediction && bestPrediction.probability >= confidenceThreshold ? bestPrediction.name : 'Unknown / Uncertain';
 
   const ensureFeatureExtractor = async () => {
     await tf.ready();
     if (!featureExtractorRef.current) {
       setStatus('Loading TensorFlow.js MobileNet feature extractor...');
       featureExtractorRef.current = await mobilenet.load({ version: 2, alpha: 0.5 });
+      setExtractorReady(true);
     }
     return featureExtractorRef.current;
   };
@@ -192,6 +204,7 @@ export default function ImageClassificationPage() {
       }
       setExamples(current => [...current, ...imported]);
       setPredictions([]);
+      setConfusionReport(null);
       setStatus(`Imported ${imported.length} image${imported.length === 1 ? '' : 's'}. Add more samples or train the model.`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Image import failed.');
@@ -224,6 +237,7 @@ export default function ImageClassificationPage() {
         preview: canvas.toDataURL('image/jpeg', 0.68),
       };
       setExamples(current => [...current, example]);
+      setConfusionReport(null);
     } finally {
       captureBusyRef.current = false;
     }
@@ -252,8 +266,10 @@ export default function ImageClassificationPage() {
       },
     ]);
     setPredictions([]);
+    setConfusionReport(null);
     modelRef.current?.dispose();
     modelRef.current = null;
+    setModelReady(false);
   };
 
   const renameClass = (id: string, name: string) => {
@@ -263,6 +279,7 @@ export default function ImageClassificationPage() {
   const clearClass = (id: string) => {
     setExamples(current => current.filter(item => item.classId !== id));
     setPredictions([]);
+    setConfusionReport(null);
   };
 
   const removeClass = (id: string) => {
@@ -273,8 +290,10 @@ export default function ImageClassificationPage() {
     setClasses(current => current.filter(item => item.id !== id));
     setExamples(current => current.filter(item => item.classId !== id));
     setPredictions([]);
+    setConfusionReport(null);
     modelRef.current?.dispose();
     modelRef.current = null;
+    setModelReady(false);
   };
 
   const resetAll = () => {
@@ -282,8 +301,10 @@ export default function ImageClassificationPage() {
     setExamples([]);
     setHistory([]);
     setPredictions([]);
+    setConfusionReport(null);
     modelRef.current?.dispose();
     modelRef.current = null;
+    setModelReady(false);
     setStatus('Samples cleared. Hold Record to collect fresh images.');
   };
 
@@ -318,10 +339,13 @@ export default function ImageClassificationPage() {
     setTraining(true);
     setHistory([]);
     setPredictions([]);
+    setConfusionReport(null);
     setStatus('Training TensorFlow.js image classifier locally...');
     modelRef.current?.dispose();
+    setModelReady(false);
     const model = buildModel(classes.length, featureSize, learningRate);
     const { xs, ys } = examplesToTensors(examplesRef.current, classes, featureSize);
+    let finalAccuracy = 0;
     try {
       await model.fit(xs, ys, {
         epochs,
@@ -330,16 +354,61 @@ export default function ImageClassificationPage() {
         validationSplit: 0.15,
         callbacks: {
           onEpochEnd: async (epoch, logs) => {
+            finalAccuracy = (logs?.acc as number | undefined) ?? (logs?.accuracy as number | undefined) ?? 0;
             setHistory(current => [...current, {
               epoch: epoch + 1,
               loss: Number((logs?.loss as number ?? 0).toFixed(4)),
-              accuracy: Number((logs?.acc as number ?? logs?.accuracy as number ?? 0).toFixed(4)),
+              accuracy: Number(finalAccuracy.toFixed(4)),
             }]);
             await tf.nextFrame();
           },
         },
       });
+      const output = model.predict(xs) as tf.Tensor;
+      const values = Array.from(await output.data());
+      output.dispose();
+      const classIndex = new Map(classes.map((item, index) => [item.id, index]));
+      const matrix = Array.from({ length: classes.length }, () => Array.from({ length: classes.length }, () => 0));
+      examplesRef.current.forEach((example, exampleIndex) => {
+        const actual = classIndex.get(example.classId) ?? 0;
+        const row = values.slice(exampleIndex * classes.length, (exampleIndex + 1) * classes.length);
+        const predicted = row.reduce((best, value, index) => value > row[best] ? index : best, 0);
+        matrix[actual][predicted]++;
+      });
+      const classMetrics = classes.map((item, index) => {
+        const tp = matrix[index][index];
+        const fp = matrix.reduce((sum, row, rowIndex) => sum + (rowIndex === index ? 0 : row[index]), 0);
+        const fn = matrix[index].reduce((sum, value, colIndex) => sum + (colIndex === index ? 0 : value), 0);
+        const precision = tp + fp > 0 ? tp / (tp + fp) : 0;
+        const recall = tp + fn > 0 ? tp / (tp + fn) : 0;
+        const f1 = precision + recall > 0 ? 2 * precision * recall / (precision + recall) : 0;
+        return { classId: item.id, precision, recall, f1 };
+      });
+      const worstPair = matrix.flatMap((row, actual) => row.map((count, predicted) => ({ actual, predicted, count })))
+        .filter(cell => cell.actual !== cell.predicted)
+        .sort((a, b) => b.count - a.count)[0];
+      setConfusionReport({
+        matrix,
+        total: examplesRef.current.length,
+        classMetrics,
+        worstPair: worstPair && worstPair.count > 0 ? {
+          actual: classes[worstPair.actual]?.name ?? `Class ${worstPair.actual + 1}`,
+          predicted: classes[worstPair.predicted]?.name ?? `Class ${worstPair.predicted + 1}`,
+          count: worstPair.count,
+        } : null,
+      });
       modelRef.current = model;
+      setModelReady(true);
+      await saveModelMetadata({
+        id: generateExperimentId(),
+        name: `Image classifier - ${classes.length} classes`,
+        algorithmId: 'image-classification',
+        algorithmName: 'Image Classification',
+        savedAt: timestampNow(),
+        parameters: { modality: 'image', classCount: classes.length, labels: classes.map(item => item.name), featureSize, imageSize: IMAGE_SIZE, epochs, batchSize },
+        metrics: { accuracy: finalAccuracy },
+        artifactType: 'tfjs',
+      });
       setStatus('Training complete. Live inference is running from the webcam.');
       startLiveInference();
     } catch (error) {
@@ -442,7 +511,7 @@ export default function ImageClassificationPage() {
                 </button>
               </div>
               <button
-                disabled={!modelRef.current}
+                disabled={!modelReady}
                 onClick={exportModel}
                 className="inline-flex w-full items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
               >
@@ -546,8 +615,12 @@ export default function ImageClassificationPage() {
               {predictions.length > 0 ? (
                 <div className="space-y-3">
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Prediction: <b>{bestPrediction?.name}</b> at <b>{((bestPrediction?.probability ?? 0) * 100).toFixed(1)}%</b>
+                    Prediction: <b>{predictedLabel}</b> at <b>{((bestPrediction?.probability ?? 0) * 100).toFixed(1)}%</b>
                   </p>
+                  <label className="block text-sm font-semibold text-gray-600 dark:text-gray-300">
+                    Confidence threshold: {(confidenceThreshold * 100).toFixed(0)}%
+                    <input type="range" min={0.5} max={0.99} step={0.01} value={confidenceThreshold} onChange={event => setConfidenceThreshold(Number(event.target.value))} className="mt-2 w-full accent-purple-600" />
+                  </label>
                   <ResponsiveContainer width="100%" height={260}>
                     <BarChart data={predictions}>
                       <CartesianGrid strokeDasharray="3 3" />
@@ -582,20 +655,80 @@ export default function ImageClassificationPage() {
 
             <Card title="Training History">
               {history.length > 0 ? (
-                <div className="space-y-2 text-xs">
-                  {history.slice(-10).map(point => (
-                    <div key={point.epoch} className="flex items-center justify-between rounded bg-gray-50 px-2 py-1.5 dark:bg-gray-900">
-                      <span>Epoch {point.epoch}</span>
-                      <span>loss {point.loss}</span>
-                      <span>{(point.accuracy * 100).toFixed(1)}%</span>
-                    </div>
-                  ))}
-                </div>
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart data={history}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="epoch" tick={{ fontSize: 11 }} />
+                    <YAxis yAxisId="left" domain={[0, 1]} tickFormatter={value => `${Math.round(Number(value) * 100)}%`} tick={{ fontSize: 11 }} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Legend />
+                    <Line yAxisId="left" type="monotone" dataKey="accuracy" stroke="#2563eb" strokeWidth={2.5} dot={false} />
+                    <Line yAxisId="right" type="monotone" dataKey="loss" stroke="#dc2626" strokeWidth={2.5} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
               ) : (
                 <p className="text-sm text-gray-500 dark:text-gray-400">Training epochs will appear here.</p>
               )}
             </Card>
           </div>
+
+          {confusionReport && (
+            <Card title="Training Confusion Matrix" subtitle="All collected training images evaluated after the latest training run">
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse text-center text-xs">
+                  <thead>
+                    <tr>
+                      <th className="p-2 text-left text-gray-500">Actual \ Pred</th>
+                      {classes.map(item => <th key={item.id} className="p-2 text-gray-500">{item.name}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {confusionReport.matrix.map((row, actual) => (
+                      <tr key={classes[actual]?.id ?? actual}>
+                        <th className="p-2 text-left font-semibold" style={{ color: classes[actual]?.color }}>{classes[actual]?.name}</th>
+                        {row.map((count, predicted) => {
+                          const pct = confusionReport.total ? count / confusionReport.total : 0;
+                          const correct = actual === predicted;
+                          return (
+                            <td
+                              key={predicted}
+                              className="border border-gray-200 p-3 font-mono font-bold dark:border-gray-700"
+                              style={{
+                                backgroundColor: correct ? `rgba(5, 150, 105, ${0.12 + pct * 2})` : `rgba(220, 38, 38, ${0.08 + pct * 2})`,
+                                color: correct ? '#047857' : count > 0 ? '#b91c1c' : '#9ca3af',
+                              }}
+                            >
+                              <div>{count}</div>
+                              <div className="text-[10px] font-normal">{(pct * 100).toFixed(1)}%</div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                {confusionReport.classMetrics.map(metric => {
+                  const item = classes.find(entry => entry.id === metric.classId);
+                  return (
+                    <div key={metric.classId} className="rounded-lg bg-gray-50 p-3 text-xs dark:bg-gray-900">
+                      <p className="mb-1 font-semibold" style={{ color: item?.color }}>{item?.name}</p>
+                      <p>Precision {(metric.precision * 100).toFixed(1)}%</p>
+                      <p>Recall {(metric.recall * 100).toFixed(1)}%</p>
+                      <p>F1 {(metric.f1 * 100).toFixed(1)}%</p>
+                    </div>
+                  );
+                })}
+              </div>
+              <InfoBox type={confusionReport.worstPair ? 'warning' : 'success'} title="Most Confused Classes">
+                {confusionReport.worstPair
+                  ? `Model confuses ${confusionReport.worstPair.actual} with ${confusionReport.worstPair.predicted} most (${confusionReport.worstPair.count} time${confusionReport.worstPair.count === 1 ? '' : 's'}).`
+                  : 'No off-diagonal mistakes on the training examples.'}
+              </InfoBox>
+            </Card>
+          )}
 
           <InfoBox type="success" title="TensorFlow.js Browser Training">
             Frames are sampled locally from your webcam, converted into MobileNet feature vectors, trained with a TensorFlow.js classifier head, and then evaluated continuously in the browser. No backend or cloud API is used.

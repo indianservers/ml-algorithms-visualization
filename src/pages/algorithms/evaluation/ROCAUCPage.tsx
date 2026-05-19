@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Legend, ReferenceArea,
+  ResponsiveContainer, Legend, ReferenceArea, ReferenceLine,
 } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -54,6 +54,33 @@ const LOAN_SCORES = loanRows.map(r =>
 
 // ─── Build combined ROC data for chart ───────────────────────────────────────
 // ─── Interpretation guide ────────────────────────────────────────────────────
+function precisionRecallCurve(actual: number[], scores: number[]) {
+  const points = Array.from({ length: 101 }, (_, i) => {
+    const threshold = i / 100;
+    let tp = 0, fp = 0, fn = 0;
+    actual.forEach((label, index) => {
+      const predicted = scores[index] >= threshold ? 1 : 0;
+      if (label === 1 && predicted === 1) tp++;
+      else if (label === 0 && predicted === 1) fp++;
+      else if (label === 1 && predicted === 0) fn++;
+    });
+    const precision = tp + fp > 0 ? tp / (tp + fp) : 1;
+    const recall = tp + fn > 0 ? tp / (tp + fn) : 0;
+    return {
+      threshold,
+      precision: parseFloat(precision.toFixed(3)),
+      recall: parseFloat(recall.toFixed(3)),
+    };
+  }).sort((a, b) => a.recall - b.recall || a.threshold - b.threshold);
+
+  const ap = points.slice(1).reduce((sum, point, index) => {
+    const previous = points[index];
+    return sum + Math.max(0, point.recall - previous.recall) * point.precision;
+  }, 0);
+
+  return { points, ap };
+}
+
 const AUC_GUIDE = [
   { range: '0.90 – 1.00', label: 'Excellent',    color: 'text-green-600' },
   { range: '0.80 – 0.90', label: 'Good',          color: 'text-blue-600'  },
@@ -66,6 +93,7 @@ const AUC_GUIDE = [
 export default function ROCAUCPage() {
   const [threshold, setThreshold] = useState(0.5);
   const [showComparison, setShowComparison] = useState(false);
+  const [curveMode, setCurveMode] = useState<'roc' | 'pr'>('roc');
   const palette = useChartPalette();
   const primaryZoom = useRechartsZoom();
   const comparisonZoom = useRechartsZoom();
@@ -74,6 +102,11 @@ export default function ROCAUCPage() {
 
   // ── Primary ROC (Loan dataset) ───────────────────────────────────────────
   const loanRoc = useMemo(() => rocCurve(LOAN_ACTUAL, LOAN_SCORES), []);
+  const loanPr = useMemo(() => precisionRecallCurve(LOAN_ACTUAL, LOAN_SCORES), []);
+  const classPrevalence = useMemo(
+    () => LOAN_ACTUAL.filter(Boolean).length / LOAN_ACTUAL.length,
+    []
+  );
 
   // ── Find operating point at current threshold ────────────────────────────
   const operatingPoint = useMemo(() => {
@@ -135,6 +168,11 @@ export default function ROCAUCPage() {
 
   // ── Diagonal data ────────────────────────────────────────────────────────
   const diagonal = [{ fpr: 0, diagonal: 0 }, { fpr: 1, diagonal: 1 }];
+  const prOperatingPoint = [{
+    recall: parseFloat(recall.toFixed(3)),
+    precision: parseFloat(precision.toFixed(3)),
+    threshold,
+  }];
 
   // ── Custom dot for operating point ──────────────────────────────────────
   const OpDot = (props: { cx?: number; cy?: number; payload?: { fpr?: number; tpr?: number } }) => {
@@ -186,70 +224,143 @@ export default function ROCAUCPage() {
       {/* ROC Chart + Confusion Matrix side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <Card title={`ROC Curve — Loan Dataset  (AUC = ${loanRoc.auc.toFixed(4)})`}
-            subtitle="Red dot = current operating point at selected threshold"
+          <Card title={`${curveMode === 'roc' ? 'ROC Curve' : 'Precision-Recall Curve'} - Loan Dataset`}
+            subtitle="Current threshold marker updates with the slider"
           >
-            {/* AUC badge */}
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">AUC:</span>
-              <span className={`text-2xl font-black ${loanRoc.auc >= 0.9 ? 'text-green-600' : loanRoc.auc >= 0.8 ? 'text-blue-600' : 'text-orange-600'}`}>
-                {loanRoc.auc.toFixed(4)}
-              </span>
-              <span className={`text-sm font-medium px-2 py-0.5 rounded-full ${loanRoc.auc >= 0.9 ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                {loanRoc.auc >= 0.9 ? 'Excellent' : loanRoc.auc >= 0.8 ? 'Good' : 'Fair'}
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 text-sm dark:border-gray-700 dark:bg-gray-900">
+                {[
+                  { id: 'roc' as const, label: 'ROC Curve' },
+                  { id: 'pr' as const, label: 'PR Curve' },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setCurveMode(tab.id)}
+                    className={`rounded-md px-3 py-1.5 font-semibold transition ${
+                      curveMode === tab.id
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">AUC:</span>
+                <span className={`text-2xl font-black ${loanRoc.auc >= 0.9 ? 'text-green-600' : loanRoc.auc >= 0.8 ? 'text-blue-600' : 'text-orange-600'}`}>
+                  {loanRoc.auc.toFixed(4)}
+                </span>
+                <span className="rounded-full bg-purple-100 px-2 py-0.5 text-sm font-semibold text-purple-700 dark:bg-purple-900/40 dark:text-purple-200">
+                  AP {loanPr.ap.toFixed(4)}
+                </span>
+                <span className={`text-sm font-medium px-2 py-0.5 rounded-full ${loanRoc.auc >= 0.9 ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {loanRoc.auc >= 0.9 ? 'Excellent' : loanRoc.auc >= 0.8 ? 'Good' : 'Fair'}
+                </span>
+              </div>
             </div>
 
-            <ResponsiveContainer width="100%" height={320}>
-              <LineChart
-                data={primaryData}
-                margin={{ top: 5, right: 20, bottom: 20, left: 10 }}
-                onMouseDown={primaryZoom.mouseDown}
-                onMouseMove={primaryZoom.mouseMove}
-                onMouseUp={primaryZoom.mouseUp}
-                onDoubleClick={primaryZoom.resetZoom}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} />
-                <XAxis
-                  dataKey="fpr" type="number" domain={primaryZoom.xDomain ?? [0, 1]}
-                  label={{ value: 'FPR (1 - Specificity)', position: 'insideBottom', offset: -12, fontSize: 11, fill: palette.axis }}
-                  tickFormatter={v => v.toFixed(1)} fontSize={11} tick={{ fill: palette.axis }} stroke={palette.axis}
-                />
-                <YAxis
-                  dataKey="tpr" type="number" domain={[0, 1]}
-                  label={{ value: 'TPR (Recall)', angle: -90, position: 'insideLeft', offset: 5, fontSize: 11, fill: palette.axis }}
-                  tickFormatter={v => v.toFixed(1)} fontSize={11} tick={{ fill: palette.axis }} stroke={palette.axis}
-                />
-                <Tooltip
-                  {...themedTooltipProps(palette)}
-                  formatter={(v: number, name: string) => [`${(v * 100).toFixed(1)}%`, name.toUpperCase()]}
-                  labelFormatter={v => `FPR: ${(Number(v) * 100).toFixed(1)}%`}
-                />
-                <Legend onClick={primarySeries.legendClick} wrapperStyle={{ color: palette.axis, cursor: 'pointer' }} />
+            {curveMode === 'roc' ? (
+              <>
+                <ResponsiveContainer width="100%" height={320}>
+                  <LineChart
+                    data={primaryData}
+                    margin={{ top: 5, right: 20, bottom: 20, left: 10 }}
+                    onMouseDown={primaryZoom.mouseDown}
+                    onMouseMove={primaryZoom.mouseMove}
+                    onMouseUp={primaryZoom.mouseUp}
+                    onDoubleClick={primaryZoom.resetZoom}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} />
+                    <XAxis
+                      dataKey="fpr" type="number" domain={primaryZoom.xDomain ?? [0, 1]}
+                      label={{ value: 'FPR (1 - Specificity)', position: 'insideBottom', offset: -12, fontSize: 11, fill: palette.axis }}
+                      tickFormatter={v => v.toFixed(1)} fontSize={11} tick={{ fill: palette.axis }} stroke={palette.axis}
+                    />
+                    <YAxis
+                      dataKey="tpr" type="number" domain={[0, 1]}
+                      label={{ value: 'TPR (Recall)', angle: -90, position: 'insideLeft', offset: 5, fontSize: 11, fill: palette.axis }}
+                      tickFormatter={v => v.toFixed(1)} fontSize={11} tick={{ fill: palette.axis }} stroke={palette.axis}
+                    />
+                    <Tooltip
+                      {...themedTooltipProps(palette)}
+                      formatter={(v: number, name: string) => [`${(v * 100).toFixed(1)}%`, name.toUpperCase()]}
+                      labelFormatter={v => `FPR: ${(Number(v) * 100).toFixed(1)}%`}
+                    />
+                    <Legend onClick={primarySeries.legendClick} wrapperStyle={{ color: palette.axis, cursor: 'pointer' }} />
 
-                {/* Diagonal reference */}
-                {!primarySeries.hidden.has('diagonal') && (
-                  <Line data={diagonal} dataKey="diagonal" dot={false} stroke={palette.axis}
-                    strokeDasharray="6 4" strokeWidth={1.5} name="Random (diagonal)" />
-                )}
+                    {!primarySeries.hidden.has('diagonal') && (
+                      <Line data={diagonal} dataKey="diagonal" dot={false} stroke={palette.axis}
+                        strokeDasharray="6 4" strokeWidth={1.5} name="Random (diagonal)" />
+                    )}
 
-                {/* ROC curve */}
-                {!primarySeries.hidden.has('tpr') && (
-                  <Line
-                    dataKey="tpr" dot={(p) => <OpDot {...p} />}
-                    stroke={palette.series[0]} strokeWidth={2.5} name="Loan Classifier"
-                    activeDot={{ r: 5, fill: palette.series[0] }}
-                  />
-                )}
-                {primaryZoom.refAreaLeft !== null && primaryZoom.refAreaRight !== null && (
-                  <ReferenceArea x1={primaryZoom.refAreaLeft} x2={primaryZoom.refAreaRight} strokeOpacity={0.3} fill={palette.series[0]} fillOpacity={0.12} />
-                )}
-              </LineChart>
-            </ResponsiveContainer>
+                    {!primarySeries.hidden.has('tpr') && (
+                      <Line
+                        dataKey="tpr" dot={(p) => <OpDot {...p} />}
+                        stroke={palette.series[0]} strokeWidth={2.5} name="Loan Classifier"
+                        activeDot={{ r: 5, fill: palette.series[0] }}
+                      />
+                    )}
+                    {primaryZoom.refAreaLeft !== null && primaryZoom.refAreaRight !== null && (
+                      <ReferenceArea x1={primaryZoom.refAreaLeft} x2={primaryZoom.refAreaRight} strokeOpacity={0.3} fill={palette.series[0]} fillOpacity={0.12} />
+                    )}
+                  </LineChart>
+                </ResponsiveContainer>
 
-            <p className="text-xs text-gray-500 mt-2 text-center">
-              Dashed line = random classifier (AUC=0.5). Area under blue curve = AUC.
-            </p>
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  Dashed line = random classifier (AUC=0.5). Area under blue curve = AUC.
+                </p>
+              </>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={320}>
+                  <LineChart data={loanPr.points} margin={{ top: 5, right: 20, bottom: 20, left: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} />
+                    <XAxis
+                      dataKey="recall" type="number" domain={[0, 1]}
+                      label={{ value: 'Recall', position: 'insideBottom', offset: -12, fontSize: 11, fill: palette.axis }}
+                      tickFormatter={v => v.toFixed(1)} fontSize={11} tick={{ fill: palette.axis }} stroke={palette.axis}
+                    />
+                    <YAxis
+                      dataKey="precision" type="number" domain={[0, 1]}
+                      label={{ value: 'Precision', angle: -90, position: 'insideLeft', offset: 5, fontSize: 11, fill: palette.axis }}
+                      tickFormatter={v => v.toFixed(1)} fontSize={11} tick={{ fill: palette.axis }} stroke={palette.axis}
+                    />
+                    <Tooltip
+                      {...themedTooltipProps(palette)}
+                      formatter={(v: number, name: string) => [`${(v * 100).toFixed(1)}%`, name]}
+                      labelFormatter={v => `Recall: ${(Number(v) * 100).toFixed(1)}%`}
+                    />
+                    <Legend wrapperStyle={{ color: palette.axis }} />
+                    <ReferenceLine
+                      y={classPrevalence}
+                      stroke={palette.axis}
+                      strokeDasharray="5 4"
+                      label={{ value: 'Random baseline', fill: palette.axis, fontSize: 11 }}
+                    />
+                    <Line
+                      dataKey="precision"
+                      dot={false}
+                      stroke={palette.series[4]}
+                      strokeWidth={2.5}
+                      name="Precision"
+                    />
+                    <Line
+                      data={prOperatingPoint}
+                      dataKey="precision"
+                      stroke="none"
+                      name="Current threshold"
+                      dot={{ r: 7, fill: palette.series[2], stroke: palette.surface, strokeWidth: 2 }}
+                      activeDot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+                <InfoBox title="When to read the PR curve" type="info">
+                  PR curves are more informative than ROC curves for imbalanced datasets. A random classifier gives AP equal to the positive class prevalence ({(classPrevalence * 100).toFixed(1)}%), not 50%.
+                </InfoBox>
+              </>
+            )}
           </Card>
         </div>
 

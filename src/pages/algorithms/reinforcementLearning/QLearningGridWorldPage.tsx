@@ -55,6 +55,7 @@ export default function QLearningGridWorldPage() {
   const [result, setResult] = useState<QLearningResult | null>(null);
   const [isTraining, setIsTraining] = useState(false);
   const [showQTable, setShowQTable] = useState(false);
+  const [showValueMap, setShowValueMap] = useState(false);
 
   // Animation
   const [agentPos, setAgentPos] = useState<[number, number] | null>(null);
@@ -124,7 +125,7 @@ export default function QLearningGridWorldPage() {
   }, [result]);
 
   const allQMax = result
-    ? Object.values(result.qTable).flatMap(qs => Object.values(qs))
+    ? Object.values(result.qTable).map(qs => Math.max(...Object.values(qs)))
     : [];
   const qMin = allQMax.length ? Math.min(...allQMax) : 0;
   const qMax = allQMax.length ? Math.max(...allQMax) : 1;
@@ -132,8 +133,8 @@ export default function QLearningGridWorldPage() {
   function qColor(val: number): string {
     if (!result) return '';
     const t = qMax === qMin ? 0.5 : (val - qMin) / (qMax - qMin);
-    const g = Math.round(t * 180);
-    return `rgba(0,${g + 40},0,${0.15 + t * 0.45})`;
+    const hue = 220 - t * 220;
+    return `hsla(${hue}, 85%, 52%, ${0.22 + t * 0.42})`;
   }
 
   return (
@@ -187,14 +188,20 @@ export default function QLearningGridWorldPage() {
                 trainLabel="Train Agent"
               />
               {result && (
-                <button
-                  onClick={animateAgent}
-                  disabled={animating}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
-                >
-                  <Play size={14} />
-                  {animating ? 'Animating…' : 'Animate Agent'}
-                </button>
+                <div className="space-y-2">
+                  <button
+                    onClick={animateAgent}
+                    disabled={animating}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    <Play size={14} />
+                    {animating ? 'Replaying...' : 'Replay Greedy Policy'}
+                  </button>
+                  <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700">
+                    <input type="checkbox" checked={showValueMap} onChange={event => setShowValueMap(event.target.checked)} className="accent-blue-600" />
+                    Value map overlay
+                  </label>
+                </div>
               )}
             </div>
           </Card>
@@ -236,7 +243,7 @@ export default function QLearningGridWorldPage() {
                         border-gray-200 dark:border-gray-600`}
                       style={{
                         width: 72, height: 72,
-                        background: result && cell === 'empty' && maxQ !== null
+                        background: result && showValueMap && cell !== 'wall' && maxQ !== null
                           ? qColor(maxQ)
                           : undefined,
                       }}
@@ -272,10 +279,19 @@ export default function QLearningGridWorldPage() {
             </div>
           </Card>
 
+          {result && showValueMap && (
+            <div className="rounded-xl border border-gray-200 bg-white p-3 text-xs shadow-sm dark:border-gray-700 dark:bg-gray-800">
+              <div className="mb-1 flex items-center justify-between text-gray-500">
+                <span>Low value {qMin.toFixed(1)}</span>
+                <span>High value {qMax.toFixed(1)}</span>
+              </div>
+              <div className="h-3 rounded-full bg-gradient-to-r from-blue-600 via-cyan-400 via-yellow-300 to-red-500" />
+            </div>
+          )}
+
           {result && (
             <InfoBox type="success" title="Training complete!">
-              Policy arrows show the best action in each non-wall cell. Green intensity = max Q-value.
-              Click "Animate Agent" to watch the learned policy in action.
+              Policy arrows show the best action in each non-wall cell. Toggle the value map to color each state by V(s)=max Q(s,a), then replay the greedy policy step by step.
             </InfoBox>
           )}
         </div>

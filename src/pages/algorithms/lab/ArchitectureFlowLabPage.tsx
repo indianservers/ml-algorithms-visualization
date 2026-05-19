@@ -172,6 +172,45 @@ const layerControls: Array<{ id: VisibleLayer; label: string; detail: string; co
   { id: 'output', label: 'Output', detail: 'Next-token probability bars', color: 'bg-fuchsia-600' },
 ];
 
+function LayerPreview({ layer }: { layer: VisibleLayer }) {
+  if (layer === 'signal') {
+    return (
+      <svg viewBox="0 0 48 24" className="h-7 w-14" aria-hidden="true">
+        <path d="M 5 12 C 18 3, 28 21, 43 10" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 3" />
+        <path d="M 39 6 L 44 10 L 38 14" fill="none" stroke="currentColor" strokeWidth="2" />
+      </svg>
+    );
+  }
+  if (layer === 'qkv') {
+    return (
+      <svg viewBox="0 0 48 24" className="h-7 w-14" aria-hidden="true">
+        {[5, 12, 19].map((y, index) => <path key={y} d={`M 4 ${y} C 18 ${y - 6}, 28 ${y + 6}, 44 ${y}`} fill="none" stroke="currentColor" strokeWidth={index === 1 ? 2.5 : 1.8} />)}
+      </svg>
+    );
+  }
+  if (layer === 'attention') {
+    return (
+      <svg viewBox="0 0 48 24" className="h-7 w-14" aria-hidden="true">
+        {Array.from({ length: 9 }, (_, index) => <circle key={index} cx={14 + (index % 3) * 10} cy={5 + Math.floor(index / 3) * 7} r={index === 4 ? 3.5 : 2.2} fill="currentColor" opacity={index === 4 ? 1 : 0.45} />)}
+      </svg>
+    );
+  }
+  if (layer === 'mlp') {
+    return (
+      <svg viewBox="0 0 48 24" className="h-7 w-14" aria-hidden="true">
+        <rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor" opacity="0.4" />
+        <rect x="28" y="5" width="14" height="14" rx="3" fill="currentColor" opacity="0.85" />
+        <path d="M 19 12 L 28 12" stroke="currentColor" strokeWidth="2" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 48 24" className="h-7 w-14" aria-hidden="true">
+      {[8, 16, 24, 32].map((x, index) => <rect key={x} x={x} y={15 - index * 3} width="5" height={5 + index * 3} rx="2" fill="currentColor" opacity={0.45 + index * 0.15} />)}
+    </svg>
+  );
+}
+
 const treeNodes: TreeNode[] = [
   { id: 'root', label: 'feature_1 <= 0.48', detail: 'Root split. The tree first asks the most useful question and sends each row left or right.', x: 520, y: 72, kind: 'root', color: '#2563eb' },
   { id: 'left', label: 'feature_2 <= 1.20', detail: 'Second split. Rows on this side still need another question before the class is clear.', x: 300, y: 190, kind: 'split', color: '#7c3aed' },
@@ -325,7 +364,7 @@ function getInitialVisualState() {
       visualMode: 'transformer' as VisualMode,
       activeTreeNodeId: 'root',
       activeGraphNodeId: 'raw',
-      lockedTokenIndex: 1 as number | null,
+      lockedTokenIndex: 0 as number | null,
       head: 3,
       block: 1,
       activeStepIndex: 0,
@@ -342,7 +381,7 @@ function getInitialVisualState() {
     visualMode: mode && visualModes.some(item => item.id === mode) ? mode : 'transformer',
     activeTreeNodeId: tree && treeNodes.some(node => node.id === tree) ? tree : 'root',
     activeGraphNodeId: graph && graphNodes.some(node => node.id === graph) ? graph : 'raw',
-    lockedTokenIndex: token === 'none' ? null : safeNumber(token, 1, 0, tokens.length - 1),
+    lockedTokenIndex: token === 'none' ? null : safeNumber(token, 0, 0, tokens.length - 1),
     head: safeNumber(params.get('head'), 3, 1, 12),
     block: safeNumber(params.get('block'), 1, 1, 8),
     activeStepIndex: safeNumber(params.get('step'), 0, 0, flowSteps.length - 1),
@@ -468,7 +507,7 @@ function AttentionMatrix({
       <rect x="568" y="102" width="164" height="164" rx="18" fill="none" stroke="currentColor" className="text-violet-200 dark:text-violet-800" />
       {focusedCell && (
         <text x="574" y="290" className="fill-violet-700 text-[12px] font-bold dark:fill-violet-300">
-          {tokens[focusedCell.row].text} attends to {tokens[focusedCell.col].text}
+          {tokens[focusedCell.row].text} {'->'} {tokens[focusedCell.col].text}: {(getAttentionValue(focusedCell.row, focusedCell.col, head, block) * 100).toFixed(1)}% attention
         </text>
       )}
     </g>
@@ -506,12 +545,16 @@ function TokenRows({
             if (event.key === 'Enter' || event.key === ' ') onTokenClick(index);
           }}
         >
+          <title>Click to lock this token. Click again to unlock.</title>
           <rect x="28" y={token.y - 22} width="224" height="44" rx="12" fill={selected ? '#eef2ff' : 'transparent'} className="dark:fill-indigo-950" opacity={selected ? 0.92 : 0} />
           <text x="40" y={token.y + 5} className={`text-[15px] font-semibold ${selected ? 'fill-indigo-700 dark:fill-indigo-200' : 'fill-gray-800 dark:fill-gray-100'}`}>{token.text}</text>
           <rect x="154" y={token.y - 18} width="18" height="36" rx="4" fill={selected ? '#818cf8' : '#cbd5e1'} opacity={selected ? 0.9 : 0.75} />
           <rect x="180" y={token.y - 18} width="18" height="36" rx="4" fill={selected ? '#60a5fa' : '#dbeafe'} />
           <rect x="206" y={token.y - 18} width="18" height="36" rx="4" fill={selected ? '#38bdf8' : '#bfdbfe'} />
-          <circle cx="244" cy={token.y} r={selected ? 5 : 3} fill={locked ? '#6d28d9' : '#94a3b8'} opacity={selected ? 0.9 : 0.55} />
+          <g transform={`translate(236 ${token.y - 8})`} opacity={locked ? 1 : selected ? 0.75 : 0.35}>
+            <rect x="3" y="7" width="12" height="9" rx="2" fill={locked ? '#6d28d9' : '#94a3b8'} />
+            <path d="M 6 7 V 5 C 6 2.8 7.3 1.5 9 1.5 C 10.7 1.5 12 2.8 12 5 V 7" fill="none" stroke={locked ? '#6d28d9' : '#94a3b8'} strokeWidth="2" strokeLinecap="round" />
+          </g>
         </g>
         );
       })}
@@ -787,6 +830,9 @@ function GraphFlowCanvas({
           <marker id="graph-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8" />
           </marker>
+          <marker id="graph-arrow-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#6d28d9" />
+          </marker>
         </defs>
         {graphEdges.map(edge => {
           const from = nodeById(graphNodes, edge.from);
@@ -805,7 +851,7 @@ function GraphFlowCanvas({
                 if (event.key === 'Enter' || event.key === ' ') onEdgeSelect(id);
               }}
             >
-              <path d={curvePath(from.x, from.y, to.x, to.y)} fill="none" stroke={active ? '#6d28d9' : '#94a3b8'} strokeWidth={2 + edge.weight * 3} strokeOpacity={active ? 0.78 : 0.34} markerEnd="url(#graph-arrow)" />
+              <path d={curvePath(from.x, from.y, to.x, to.y)} fill="none" stroke={active ? '#6d28d9' : '#94a3b8'} strokeWidth={2 + edge.weight * 3} strokeOpacity={active ? 0.78 : 0.34} markerEnd={active ? 'url(#graph-arrow-active)' : 'url(#graph-arrow)'} />
               <path d={curvePath(from.x, from.y, to.x, to.y)} fill="none" stroke="transparent" strokeWidth="18" />
               <text x={(from.x + to.x) / 2 - 18} y={(from.y + to.y) / 2 - 8} className="fill-gray-500 text-[12px] font-bold dark:fill-gray-400">{edge.label}</text>
             </g>
@@ -825,8 +871,12 @@ function GraphFlowCanvas({
                 if (event.key === 'Enter' || event.key === ' ') onNodeSelect(node.id);
               }}
             >
-              <circle cx={node.x} cy={node.y} r={active ? 48 : 40} fill={active ? node.color : '#ffffff'} className={active ? '' : 'dark:fill-gray-900'} stroke={node.color} strokeWidth={active ? 4 : 2} />
-              <text x={node.x} y={node.y + 4} textAnchor="middle" className={`text-[13px] font-bold ${active ? 'fill-white' : 'fill-gray-800 dark:fill-gray-100'}`}>{node.label}</text>
+              <circle cx={node.x} cy={node.y} r={active ? 52 : 44} fill={active ? node.color : '#ffffff'} className={active ? '' : 'dark:fill-gray-900'} stroke={node.color} strokeWidth={active ? 4 : 2} />
+              <text x={node.x} y={node.label.includes(' ') ? node.y - 5 : node.y + 4} textAnchor="middle" className={`text-[13px] font-bold ${active ? 'fill-white' : 'fill-gray-800 dark:fill-gray-100'}`}>
+                {node.label.split(' ').map((part, index) => (
+                  <tspan key={part} x={node.x} dy={index === 0 ? 0 : 14}>{part}</tspan>
+                ))}
+              </text>
             </g>
           );
         })}
@@ -858,13 +908,16 @@ export default function ArchitectureFlowLabPage() {
   const [completedPractice, setCompletedPractice] = useState<number[]>([]);
   const [visibleLayers, setVisibleLayers] = useState<VisibleLayerState>(defaultVisibleLayers);
   const [savedPresets, setSavedPresets] = useState<VisualPreset[]>(loadPresets);
+  const [draftPreset, setDraftPreset] = useState<VisualPreset | null>(null);
+  const [draftPresetLabel, setDraftPresetLabel] = useState('');
   const [notice, setNotice] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const activeStep = flowSteps[activeStepIndex];
   const activeTreeNode = treeNodes.find(node => node.id === activeTreeNodeId) ?? treeNodes[0];
   const activeGraphNode = graphNodes.find(node => node.id === activeGraphNodeId) ?? graphNodes[0];
   const activeGraphEdge = graphEdges.find(edge => graphEdgeId(edge) === activeGraphEdgeId) ?? null;
   const activeTreePath = getTreePath(activeTreeNodeId).map(id => nodeById(treeNodes, id));
-  const selectedTokenIndex = lockedTokenIndex ?? hoveredTokenIndex ?? 1;
+  const selectedTokenIndex = lockedTokenIndex ?? hoveredTokenIndex ?? 0;
   const selectedToken = tokens[selectedTokenIndex];
   const selectedAttention = useMemo(() => {
     const row = tokens.map((_, index) => getAttentionValue(selectedTokenIndex, index, head, block));
@@ -879,7 +932,7 @@ export default function ArchitectureFlowLabPage() {
     { label: 'Canvas mode', value: visualModes.find(mode => mode.id === visualMode)?.label ?? 'Transformer' },
     { label: 'Learning mode', value: modeLabel },
     { label: visualMode === 'transformer' ? 'Attention head' : 'Selected node', value: visualMode === 'transformer' ? `${head} / 12` : visualMode === 'tree' ? activeTreeNode.label : activeGraphNode.label },
-    { label: 'Phase', value: '9 / 9' },
+    { label: 'Phase', value: visualMode === 'transformer' ? `${activeStepIndex + 1} / ${flowSteps.length}` : '-' },
   ];
 
   useEffect(() => {
@@ -890,17 +943,35 @@ export default function ArchitectureFlowLabPage() {
     return () => window.clearInterval(timer);
   }, [playing, speed]);
 
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = window.setTimeout(() => setNotice(''), 3000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  useEffect(() => {
+    const updateFullscreenState = () => {
+      setIsFullscreen(document.fullscreenElement === canvasPanelRef.current);
+    };
+    document.addEventListener('fullscreenchange', updateFullscreenState);
+    return () => document.removeEventListener('fullscreenchange', updateFullscreenState);
+  }, []);
+
   const resetInteraction = () => {
-    setHoveredTokenIndex(null);
-    setLockedTokenIndex(1);
-    setHead(3);
-    setBlock(1);
     setActiveStream(null);
     setFocusedCell(null);
     setActiveStepIndex(0);
     setActiveGraphEdgeId(null);
     setVisibleLayers(defaultVisibleLayers);
     setPlaying(false);
+  };
+  const resetSelection = () => {
+    setHoveredTokenIndex(null);
+    setLockedTokenIndex(0);
+    setHead(3);
+    setBlock(1);
+    setActiveGraphEdgeId(null);
+    setNotice('Selection reset');
   };
   const previousStep = () => setActiveStepIndex(index => (index === 0 ? flowSteps.length - 1 : index - 1));
   const nextStep = () => setActiveStepIndex(index => (index + 1) % flowSteps.length);
@@ -930,10 +1001,25 @@ export default function ArchitectureFlowLabPage() {
     setNotice(`Loaded ${preset.label}`);
   };
   const savePreset = () => {
-    const next = [currentPreset(), ...savedPresets].slice(0, 6);
+    const preset = currentPreset();
+    setDraftPreset(preset);
+    setDraftPresetLabel(preset.label);
+    setNotice('Label this preset, then press Enter.');
+  };
+  const confirmPresetLabel = () => {
+    if (!draftPreset) return;
+    const label = draftPresetLabel.trim() || draftPreset.label;
+    const next = [{ ...draftPreset, label }, ...savedPresets].slice(0, 6);
     setSavedPresets(next);
     localStorage.setItem(PRESETS_KEY, JSON.stringify(next));
+    setDraftPreset(null);
+    setDraftPresetLabel('');
     setNotice('Visual preset saved');
+  };
+  const cancelPresetLabel = () => {
+    setDraftPreset(null);
+    setDraftPresetLabel('');
+    setNotice('');
   };
   const deletePreset = (id: string) => {
     const next = savedPresets.filter(preset => preset.id !== id);
@@ -990,6 +1076,9 @@ export default function ArchitectureFlowLabPage() {
   const openFullscreen = async () => {
     await canvasPanelRef.current?.requestFullscreen?.();
     setNotice('Fullscreen opened');
+  };
+  const exitFullscreen = async () => {
+    if (document.fullscreenElement) await document.exitFullscreen();
   };
   const selectGraphNode = (id: string) => {
     setActiveGraphNodeId(id);
@@ -1092,19 +1181,19 @@ export default function ArchitectureFlowLabPage() {
           </div>
         </div>
 
-        {learningMode !== 'practice' && (
+        {learningMode === 'teaching' && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/20">
           <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr_0.9fr]">
             <div>
               <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-blue-700 dark:text-blue-300">
-                <BookOpen size={14} /> {learningMode === 'teaching' ? 'Teaching walkthrough' : 'Learning model'}
+                <BookOpen size={14} /> Teaching walkthrough
               </p>
               <p className="mt-2 text-sm leading-6 text-blue-950 dark:text-blue-100">{beginnerGuide.plain}</p>
             </div>
             <div className="rounded-lg bg-white p-3 dark:bg-gray-950">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">{learningMode === 'teaching' ? 'How to use it' : 'How the model thinks'}</p>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">How to use it</p>
               <div className="grid gap-2 sm:grid-cols-2">
-                {(learningMode === 'teaching' ? beginnerGuide.readOrder : learningModelCards[visualMode].map(card => `${card.label}: ${card.detail}`)).map((item, index) => (
+                {beginnerGuide.readOrder.map((item, index) => (
                   <div key={item} className="flex gap-2 text-xs leading-5 text-gray-600 dark:text-gray-300">
                     <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-blue-600 font-bold text-white">{index + 1}</span>
                     <span>{item}</span>
@@ -1117,6 +1206,25 @@ export default function ArchitectureFlowLabPage() {
               <p className="mt-2 text-sm leading-6 text-gray-700 dark:text-gray-200">{beginnerGuide.tryThis}</p>
             </div>
           </div>
+        </div>
+        )}
+
+        {learningMode === 'learning' && (
+        <div className="rounded-lg border border-cyan-200 bg-cyan-50 p-4 dark:border-cyan-900 dark:bg-cyan-950/20">
+          <div className="mb-3">
+            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">
+              <BookOpen size={14} /> Learning model
+            </p>
+            <p className="mt-2 text-sm leading-6 text-cyan-950 dark:text-cyan-100">Read the diagram as a chain of small jobs. Each card names one job and what it contributes to the final answer.</p>
+          </div>
+          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {learningModelCards[visualMode].map(card => (
+              <div key={card.label} className="rounded-lg border border-cyan-200 bg-white p-3 dark:border-cyan-900 dark:bg-gray-950">
+                <dt className="text-sm font-bold text-gray-900 dark:text-white">{card.label}</dt>
+                <dd className="mt-1 text-xs leading-5 text-gray-600 dark:text-gray-300">{card.detail}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
         )}
 
@@ -1154,6 +1262,18 @@ export default function ArchitectureFlowLabPage() {
                 );
               })}
             </div>
+            {completedPractice.length > 0 && completedPractice.length === currentPracticeTasks.length && (
+              <div className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950/30">
+                <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">All tasks complete</p>
+                <p className="mt-1 text-sm leading-6 text-emerald-800 dark:text-emerald-200">Switch to another visual mode or return to Teaching Mode.</p>
+                <button
+                  onClick={() => updateLearningMode('teaching')}
+                  className="mt-2 inline-flex min-h-9 items-center rounded bg-emerald-600 px-3 text-xs font-bold text-white hover:bg-emerald-700"
+                >
+                  Return to Teaching Mode
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -1199,6 +1319,26 @@ export default function ArchitectureFlowLabPage() {
           <div className="flex min-h-10 items-center text-xs font-semibold text-gray-500 dark:text-gray-400">
             {notice || 'Export, share, or save the current visual state.'}
           </div>
+          {draftPreset && (
+            <div className="lg:col-span-2">
+              <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400" htmlFor="architecture-preset-label">
+                Preset label
+              </label>
+              <input
+                id="architecture-preset-label"
+                autoFocus
+                value={draftPresetLabel}
+                onChange={event => setDraftPresetLabel(event.target.value)}
+                onBlur={confirmPresetLabel}
+                onKeyDown={event => {
+                  if (event.key === 'Enter') confirmPresetLabel();
+                  if (event.key === 'Escape') cancelPresetLabel();
+                }}
+                placeholder="Label this preset..."
+                className="mt-1 min-h-10 w-full rounded border border-blue-200 bg-blue-50 px-3 text-sm font-semibold text-gray-900 outline-none ring-blue-500 transition focus:ring-2 dark:border-blue-900 dark:bg-blue-950/30 dark:text-white"
+              />
+            </div>
+          )}
         </div>
 
         {savedPresets.length > 0 && (
@@ -1222,6 +1362,29 @@ export default function ArchitectureFlowLabPage() {
 
         <Card title={visualMode === 'transformer' ? 'Transformer Architecture Flow' : visualMode === 'tree' ? 'Decision Tree Flow' : 'Graph / State Flow'} icon={<BrainCircuit size={16} />}>
           <div ref={canvasPanelRef} className="space-y-4 rounded-lg bg-white p-0 dark:bg-gray-950">
+            {isFullscreen && (
+              <div className="fixed left-3 right-3 top-3 z-50 flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white/95 p-2 shadow-lg backdrop-blur dark:border-gray-700 dark:bg-gray-950/95">
+                {visualMode === 'transformer' && (
+                  <>
+                    <button onClick={() => setPlaying(value => !value)} className="inline-flex min-h-9 items-center gap-2 rounded bg-indigo-600 px-3 text-xs font-bold text-white hover:bg-indigo-700">
+                      {playing ? <Pause size={13} /> : <Play size={13} />} {playing ? 'Pause' : 'Play'}
+                    </button>
+                    <button onClick={previousStep} className="inline-flex min-h-9 items-center gap-2 rounded border border-gray-200 px-3 text-xs font-bold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">
+                      <StepBack size={13} /> Back
+                    </button>
+                    <button onClick={nextStep} className="inline-flex min-h-9 items-center gap-2 rounded border border-gray-200 px-3 text-xs font-bold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">
+                      <StepForward size={13} /> Next
+                    </button>
+                    <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-200">
+                      Step {activeStepIndex + 1} of {flowSteps.length}
+                    </span>
+                  </>
+                )}
+                <button onClick={exitFullscreen} className="ml-auto inline-flex min-h-9 items-center rounded bg-gray-900 px-3 text-xs font-bold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200">
+                  Exit fullscreen
+                </button>
+              </div>
+            )}
             {visualMode === 'transformer' && (
               <>
             <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
@@ -1284,6 +1447,12 @@ export default function ArchitectureFlowLabPage() {
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   In plain English: the selected word is borrowing context from another word. Strongest link: {(selectedAttention.value * 100).toFixed(1)}%.
                 </p>
+                <button
+                  onClick={resetSelection}
+                  className="mt-3 inline-flex min-h-9 items-center gap-2 rounded border border-gray-200 px-3 text-xs font-bold text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  <RotateCcw size={13} /> Reset selection
+                </button>
               </div>
             </div>
 
@@ -1313,6 +1482,9 @@ export default function ArchitectureFlowLabPage() {
                           : 'border-gray-200 bg-white text-gray-400 opacity-70 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-500'
                       }`}
                     >
+                      <span className={`mb-2 block ${enabled ? 'text-gray-700 dark:text-gray-200' : 'text-gray-300 dark:text-gray-700'}`}>
+                        <LayerPreview layer={layer.id} />
+                      </span>
                       <span className="flex items-center gap-2 text-xs font-bold">
                         <span className={`h-2.5 w-2.5 rounded-full ${enabled ? layer.color : 'bg-gray-300 dark:bg-gray-700'}`} />
                         {layer.label}
@@ -1351,20 +1523,26 @@ export default function ArchitectureFlowLabPage() {
                     ))}
                   </div>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-5">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
                   {flowSteps.map((step, index) => (
-                    <button
-                      key={step.id}
-                      onClick={() => setActiveStepIndex(index)}
-                      className={`min-h-12 rounded-lg border px-2 py-2 text-left text-xs font-bold transition-colors ${
-                        index === activeStepIndex
-                          ? 'border-indigo-500 bg-white text-indigo-700 shadow-sm dark:bg-gray-950 dark:text-indigo-200'
-                          : 'border-indigo-100 bg-indigo-100/70 text-indigo-500 hover:bg-white dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-300'
-                      }`}
-                    >
-                      <span className="block text-[10px] uppercase tracking-wide">Step {index + 1}</span>
-                      {step.label}
-                    </button>
+                    <React.Fragment key={step.id}>
+                      <button
+                        onClick={() => setActiveStepIndex(index)}
+                        className={`min-h-12 flex-1 rounded-lg border px-2 py-2 text-left text-xs font-bold transition-colors ${
+                          index === activeStepIndex
+                            ? 'border-indigo-500 bg-white text-indigo-700 shadow-sm dark:bg-gray-950 dark:text-indigo-200'
+                            : 'border-indigo-100 bg-indigo-100/70 text-indigo-500 hover:bg-white dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-300'
+                        }`}
+                      >
+                        <span className="block text-[10px] uppercase tracking-wide">Step {index + 1}</span>
+                        {step.label}
+                      </button>
+                      {index < flowSteps.length - 1 && (
+                        <div className="hidden items-center sm:flex" aria-hidden="true">
+                          <div className={`h-0.5 w-4 ${index < activeStepIndex ? 'bg-indigo-500' : 'bg-indigo-200 dark:bg-indigo-900'}`} />
+                        </div>
+                      )}
+                    </React.Fragment>
                   ))}
                 </div>
               </div>

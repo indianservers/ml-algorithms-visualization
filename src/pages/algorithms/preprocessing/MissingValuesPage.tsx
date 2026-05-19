@@ -52,6 +52,11 @@ function numericValues(data: Row[], col: string): number[] {
 function numMean(vals: number[]): number {
   return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
 }
+function numStd(vals: number[]): number {
+  if (vals.length < 2) return 0;
+  const avg = numMean(vals);
+  return Math.sqrt(vals.reduce((sum, value) => sum + (value - avg) ** 2, 0) / (vals.length - 1));
+}
 function numMedian(vals: number[]): number {
   if (!vals.length) return 0;
   const s = [...vals].sort((a, b) => a - b);
@@ -126,6 +131,27 @@ function parseCSV(text: string): { data: Row[]; cols: string[] } {
   return { data, cols };
 }
 
+function isNumericColumn(data: Row[], col: string) {
+  const values = data.map(row => row[col]).filter(value => !isMissing(value));
+  return values.length > 0 && values.every(value => Number.isFinite(Number(value)));
+}
+
+function histogram(values: number[], min: number, max: number, bins = 12) {
+  const width = (max - min || 1) / bins;
+  const counts = Array.from({ length: bins }, () => 0);
+  values.forEach(value => {
+    const index = Math.min(bins - 1, Math.max(0, Math.floor((value - min) / width)));
+    counts[index]++;
+  });
+  const total = values.length || 1;
+  return counts.map((count, index) => ({
+    start: min + index * width,
+    end: min + (index + 1) * width,
+    density: count / total,
+    count,
+  }));
+}
+
 // ─── Matrix cell component ────────────────────────────────────────────────────
 const MatrixCell: React.FC<{ value: unknown; col: string }> = ({ value }) => {
   const missing = isMissing(value);
@@ -147,9 +173,40 @@ export default function MissingValuesPage() {
   const [dropThreshold, setDropThreshold] = useState(40);
   const [customValue, setCustomValue] = useState('0');
   const [imputed, setImputed]         = useState<{ data: Row[]; cols: string[] } | null>(null);
+  const [distributionCol, setDistributionCol] = useState('income');
   const fileRef                        = useRef<HTMLInputElement>(null);
 
   const stats = useMemo(() => computeStats(sourceData, sourceCols), [sourceData, sourceCols]);
+  const numericColumns = useMemo(
+    () => sourceCols.filter(col => isNumericColumn(sourceData, col)),
+    [sourceData, sourceCols]
+  );
+  const activeDistributionCol = numericColumns.includes(distributionCol) ? distributionCol : numericColumns[0] ?? '';
+  const distribution = useMemo(() => {
+    if (!imputed || !activeDistributionCol) return null;
+    const originalValues = numericValues(sourceData, activeDistributionCol);
+    const imputedValues = numericValues(imputed.data, activeDistributionCol);
+    const min = Math.min(...originalValues, ...imputedValues);
+    const max = Math.max(...originalValues, ...imputedValues);
+    const before = histogram(originalValues, min, max);
+    const after = histogram(imputedValues, min, max);
+    const maxDensity = Math.max(...before.map(bin => bin.density), ...after.map(bin => bin.density), 0.01);
+    const originalMean = numMean(originalValues);
+    const imputedMean = numMean(imputedValues);
+    const originalStd = numStd(originalValues);
+    const imputedStd = numStd(imputedValues);
+    return {
+      before,
+      after,
+      maxDensity,
+      originalMean,
+      imputedMean,
+      originalStd,
+      imputedStd,
+      meanDelta: imputedMean - originalMean,
+      stdDelta: imputedStd - originalStd,
+    };
+  }, [activeDistributionCol, imputed, sourceData]);
 
   const handleImpute = useCallback(() => {
     const next = applyImputation(sourceData, sourceCols, strategy, dropThreshold, customValue);
@@ -430,6 +487,57 @@ export default function MissingValuesPage() {
                         </div>
                       </Card>
                     </div>
+
+                    {distribution && (
+                      <Card title="Before / After Distribution Overlay" subtitle="Gray = original non-missing values, blue = distribution after imputation">
+                        <div className="mb-4 flex flex-wrap items-center gap-3">
+                          <label className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                            Imputed numeric column
+                            <select
+                              value={activeDistributionCol}
+                              onChange={event => setDistributionCol(event.target.value)}
+                              className="ml-2 rounded border border-gray-200 bg-white px-2 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900"
+                            >
+                              {numericColumns.map(col => <option key={col} value={col}>{col}</option>)}
+                            </select>
+                          </label>
+                          <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-200">
+                            Strategy: {strategy}
+                          </span>
+                        </div>
+                        <div className="h-64 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-950">
+                          <div className="flex h-full items-end gap-1">
+                            {distribution.before.map((bin, index) => {
+                              const after = distribution.after[index];
+                              return (
+                                <div key={index} className="relative flex-1 self-stretch">
+                                  <div className="absolute bottom-0 left-1/2 w-[78%] -translate-x-1/2 rounded-t bg-gray-400/55"
+                                    style={{ height: `${(bin.density / distribution.maxDensity) * 100}%` }}
+                                    title={`Original ${bin.start.toFixed(1)}-${bin.end.toFixed(1)}: ${bin.count}`} />
+                                  <div className="absolute bottom-0 left-1/2 w-[42%] -translate-x-1/2 rounded-t bg-blue-500/75"
+                                    style={{ height: `${(after.density / distribution.maxDensity) * 100}%` }}
+                                    title={`After ${bin.start.toFixed(1)}-${bin.end.toFixed(1)}: ${after.count}`} />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="mt-3 grid gap-3 text-sm md:grid-cols-3">
+                          <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-900">
+                            <p className="text-xs text-gray-500">Original mean ± std</p>
+                            <p className="font-mono font-bold">{distribution.originalMean.toFixed(2)} ± {distribution.originalStd.toFixed(2)}</p>
+                          </div>
+                          <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
+                            <p className="text-xs text-gray-500">Imputed mean ± std</p>
+                            <p className="font-mono font-bold">{distribution.imputedMean.toFixed(2)} ± {distribution.imputedStd.toFixed(2)}</p>
+                          </div>
+                          <div className="rounded-lg bg-amber-50 p-3 dark:bg-amber-900/20">
+                            <p className="text-xs text-gray-500">Distribution shift</p>
+                            <p className="font-mono font-bold">mean {distribution.meanDelta >= 0 ? '+' : ''}{distribution.meanDelta.toFixed(2)}, std {distribution.stdDelta >= 0 ? '+' : ''}{distribution.stdDelta.toFixed(2)}</p>
+                          </div>
+                        </div>
+                      </Card>
+                    )}
                   </>
                 ) : (
                   <InfoBox type="info">

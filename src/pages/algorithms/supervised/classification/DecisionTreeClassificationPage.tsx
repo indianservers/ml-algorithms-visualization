@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell,
+  ResponsiveContainer, Cell, LineChart, Line, Legend, ReferenceLine,
 } from 'recharts';
 import { GitBranch } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -23,7 +23,7 @@ const FEATURE_LABELS = ['Sepal Len', 'Sepal Wid', 'Petal Len', 'Petal Wid'];
 // ─── Tree SVG renderer ───────────────────────────────────────────────────────
 
 interface NodeRenderInfo {
-  node: TreeNode;
+  node: PrunedTreeNode;
   x: number;
   y: number;
   width: number;
@@ -31,8 +31,10 @@ interface NodeRenderInfo {
   path: boolean; // is this node on the prediction path?
 }
 
+type PrunedTreeNode = TreeNode & { pruned?: boolean };
+
 function collectNodes(
-  node: TreeNode,
+  node: PrunedTreeNode,
   x: number,
   y: number,
   width: number,
@@ -46,7 +48,7 @@ function collectNodes(
 }
 
 function collectEdges(
-  node: TreeNode,
+  node: PrunedTreeNode,
   x: number,
   y: number,
   width: number,
@@ -65,7 +67,7 @@ function collectEdges(
   }
 }
 
-function TreeDiagram({ root, pathNodes }: { root: TreeNode; pathNodes: Set<TreeNode> }) {
+function TreeDiagram({ root, pathNodes }: { root: PrunedTreeNode; pathNodes: Set<TreeNode> }) {
   const nodes: NodeRenderInfo[] = [];
   const edges: { x1: number; y1: number; x2: number; y2: number; onPath: boolean }[] = [];
   const depth = treeDepth(root);
@@ -95,10 +97,11 @@ function TreeDiagram({ root, pathNodes }: { root: TreeNode; pathNodes: Set<TreeN
           const featureIdx = n.node.featureIndex ?? 0;
           const impurity = n.node.impurity ?? 0;
           const samples = n.node.samples ?? 0;
+          const pruned = n.node.pruned;
           const fillColor = isLeaf
-            ? CLASS_COLORS[classLabel % CLASS_COLORS.length] + '33'
+            ? pruned ? '#e5e7eb' : CLASS_COLORS[classLabel % CLASS_COLORS.length] + '33'
             : n.path ? '#fef3c7' : '#f9fafb';
-          const strokeColor = n.path ? '#f59e0b' : isLeaf ? CLASS_COLORS[classLabel % CLASS_COLORS.length] : '#d1d5db';
+          const strokeColor = pruned ? '#6b7280' : n.path ? '#f59e0b' : isLeaf ? CLASS_COLORS[classLabel % CLASS_COLORS.length] : '#d1d5db';
 
           return (
             <g key={i} transform={`translate(${n.x - boxW / 2}, ${n.y - boxH / 2})`}>
@@ -111,8 +114,8 @@ function TreeDiagram({ root, pathNodes }: { root: TreeNode; pathNodes: Set<TreeN
               {isLeaf ? (
                 <>
                   <text x={boxW / 2} y={16} textAnchor="middle" fontSize={10} fontWeight="bold"
-                    fill={CLASS_COLORS[classLabel % CLASS_COLORS.length]}>
-                    {CLASS_NAMES[classLabel] ?? `C${classLabel}`}
+                    fill={pruned ? '#4b5563' : CLASS_COLORS[classLabel % CLASS_COLORS.length]}>
+                    {pruned ? `✂ ${CLASS_NAMES[classLabel] ?? `C${classLabel}`}` : CLASS_NAMES[classLabel] ?? `C${classLabel}`}
                   </text>
                   <text x={boxW / 2} y={30} textAnchor="middle" fontSize={9} fill="#6b7280">n={samples}</text>
                   <text x={boxW / 2} y={42} textAnchor="middle" fontSize={9} fill="#6b7280">imp={impurity.toFixed(3)}</text>
@@ -170,11 +173,49 @@ function computeFeatureImportance(node: TreeNode, importance: number[] = Array(4
   return importance;
 }
 
+function majorityFromCounts(node: TreeNode): number {
+  const entries = Object.entries(node.classCounts ?? {});
+  if (!entries.length) return node.classLabel ?? 0;
+  return Number(entries.reduce((best, entry) => Number(entry[1]) > Number(best[1]) ? entry : best)[0]);
+}
+
+function pruneTree(node: TreeNode, alpha: number): PrunedTreeNode {
+  if (node.classLabel !== undefined || !node.left || !node.right) return { ...node };
+  const left = pruneTree(node.left, alpha);
+  const right = pruneTree(node.right, alpha);
+  const leftLeaves = countLeaves(left);
+  const rightLeaves = countLeaves(right);
+  const samples = node.samples ?? 1;
+  const gain = (node.impurity ?? 0)
+    - ((node.left.samples ?? 0) / samples) * (node.left.impurity ?? 0)
+    - ((node.right.samples ?? 0) / samples) * (node.right.impurity ?? 0);
+  if (gain - alpha * (leftLeaves + rightLeaves) < 0) {
+    return {
+      samples: node.samples,
+      impurity: node.impurity,
+      classCounts: node.classCounts,
+      classLabel: majorityFromCounts(node),
+      pruned: true,
+    };
+  }
+  return { ...node, left, right };
+}
+
+function countPruned(node: PrunedTreeNode): number {
+  if (node.pruned) return 1;
+  return (node.left ? countPruned(node.left) : 0) + (node.right ? countPruned(node.right) : 0);
+}
+
+function accuracyFor(root: TreeNode, X: number[][], y: number[]) {
+  return X.filter((row, index) => predictTree(root, row) === y[index]).length / y.length;
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function DecisionTreeClassificationPage() {
   const [maxDepth, setMaxDepth] = useState(3);
   const [minSamples, setMinSamples] = useState(2);
   const [criterion, setCriterion] = useState<SplitCriterion>('gini');
+  const [pruneAlpha, setPruneAlpha] = useState(0.005);
   const [predInput, setPredInput] = useState({
     sepal_length: '5.5',
     sepal_width: '3.0',
@@ -233,6 +274,29 @@ export default function DecisionTreeClassificationPage() {
     feature: label,
     importance: parseFloat((importance[i] * 100).toFixed(2)),
   })).sort((a, b) => b.importance - a.importance);
+
+  const pruning = useMemo(() => {
+    const trainIdx = X.map((_, index) => index).filter(index => index % 5 !== 0);
+    const validIdx = X.map((_, index) => index).filter(index => index % 5 === 0);
+    const trainX = trainIdx.map(index => X[index]);
+    const trainY = trainIdx.map(index => y[index]);
+    const validX = validIdx.map(index => X[index]);
+    const validY = validIdx.map(index => y[index]);
+    const base = buildDecisionTree(trainX, trainY, Math.max(maxDepth, 6), minSamples, criterion);
+    const rows = Array.from({ length: 51 }, (_, index) => {
+      const alpha = index / 1000;
+      const pruned = pruneTree(base, alpha);
+      return {
+        alpha,
+        train: Number((accuracyFor(pruned, trainX, trainY) * 100).toFixed(2)),
+        validation: Number((accuracyFor(pruned, validX, validY) * 100).toFixed(2)),
+        leaves: countLeaves(pruned),
+      };
+    });
+    const selectedTree = pruneTree(tree, pruneAlpha);
+    const best = rows.reduce((winner, row) => row.validation > winner.validation ? row : winner, rows[0]);
+    return { rows, selectedTree, best, prunedCount: countPruned(selectedTree) };
+  }, [X, y, maxDepth, minSamples, criterion, tree, pruneAlpha]);
 
   const hyperparamDefs: HyperparamDef[] = [
     { key: 'maxDepth', label: 'Max Depth', type: 'range', min: 1, max: 8, step: 1, value: maxDepth },
@@ -458,6 +522,37 @@ Gain = H(parent)
               </>
             )}
           </Tabs>
+
+          <Card title="Cost-Complexity Pruning" subtitle="Higher alpha collapses weak branches into grey leaf nodes">
+            <div className="mb-4">
+              <label className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                Alpha: <span className="font-mono text-blue-600">{pruneAlpha.toFixed(3)}</span>
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={0.05}
+                step={0.001}
+                value={pruneAlpha}
+                onChange={event => setPruneAlpha(Number(event.target.value))}
+                className="mt-1 w-full accent-blue-600"
+              />
+              <p className="mt-1 text-xs text-gray-500">Collapsed branches: {pruning.prunedCount} · Leaves after pruning: {countLeaves(pruning.selectedTree)}</p>
+            </div>
+            <TreeDiagram root={pruning.selectedTree} pathNodes={pathNodes} />
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={pruning.rows} margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="alpha" tick={{ fontSize: 10 }} label={{ value: 'alpha', position: 'insideBottom', offset: -12, fontSize: 11 }} />
+                <YAxis domain={[80, 100]} tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} />
+                <Tooltip formatter={(v: number) => `${v.toFixed(2)}%`} labelFormatter={v => `alpha ${Number(v).toFixed(3)}`} />
+                <Legend />
+                <ReferenceLine x={pruning.best.alpha} stroke="#dc2626" strokeDasharray="5 4" label="best validation" />
+                <Line dataKey="train" name="Training accuracy" stroke="#2563eb" strokeWidth={2} dot={false} />
+                <Line dataKey="validation" name="Validation accuracy" stroke="#059669" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </Card>
         </div>
       </div>
 

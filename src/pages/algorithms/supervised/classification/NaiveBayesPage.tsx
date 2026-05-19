@@ -44,6 +44,10 @@ export default function NaiveBayesPage() {
   }, []);
 
   const model = useMemo(() => trainGaussianNB(X, y), [X, y]);
+  const featureMeans = useMemo(
+    () => FEATURE_NAMES.map((_, j) => X.reduce((sum, row) => sum + row[j], 0) / X.length),
+    [X]
+  );
 
   // Accuracy
   const predictions = useMemo(() => X.map(xi => model.predict(xi)), [X, model]);
@@ -115,6 +119,35 @@ export default function NaiveBayesPage() {
     });
   }, [model, selectedFeatureIdx]);
 
+  const boundaryView = useMemo(() => {
+    const [xFeature, yFeature] = selectedFeatures;
+    const xs = X.map(row => row[xFeature]);
+    const ys = X.map(row => row[yFeature]);
+    const xPadding = (Math.max(...xs) - Math.min(...xs)) * 0.12;
+    const yPadding = (Math.max(...ys) - Math.min(...ys)) * 0.12;
+    const xMin = Math.min(...xs) - xPadding;
+    const xMax = Math.max(...xs) + xPadding;
+    const yMin = Math.min(...ys) - yPadding;
+    const yMax = Math.max(...ys) + yPadding;
+    const size = 60;
+    const cells = Array.from({ length: size * size }, (_, index) => {
+      const gx = index % size;
+      const gy = Math.floor(index / size);
+      const sample = [...featureMeans];
+      sample[xFeature] = xMin + (gx / (size - 1)) * (xMax - xMin);
+      sample[yFeature] = yMax - (gy / (size - 1)) * (yMax - yMin);
+      const probs = model.predictProba(sample);
+      const predicted = model.predict(sample);
+      return { gx, gy, predicted, confidence: Math.max(...Object.values(probs)) };
+    });
+    const projectedPoints = X.map((row, index) => ({
+      xPct: ((row[xFeature] - xMin) / (xMax - xMin)) * 100,
+      yPct: 100 - ((row[yFeature] - yMin) / (yMax - yMin)) * 100,
+      label: y[index],
+    }));
+    return { cells, projectedPoints, size, xMin, xMax, yMin, yMax };
+  }, [X, y, model, featureMeans, selectedFeatures]);
+
   return (
     <div className="space-y-6 p-4 max-w-7xl mx-auto">
       <PageHeader
@@ -180,6 +213,7 @@ P(C|x) ∝ P(C) · ∏ⱼ P(xⱼ|C)`}</pre>
             tabs={[
               { id: 'means', label: 'Feature Means' },
               { id: 'pdf', label: 'Gaussian PDFs' },
+              { id: 'boundary', label: 'Decision Boundary' },
               { id: 'posteriors', label: 'Posterior Probs' },
               { id: 'predict', label: 'Prediction' },
             ]}
@@ -252,6 +286,76 @@ P(C|x) ∝ P(C) · ∏ⱼ P(xⱼ|C)`}</pre>
                         ))}
                       </BarChart>
                     </ResponsiveContainer>
+                  </Card>
+                )}
+
+                {activeTab === 'boundary' && (
+                  <Card title="2D Decision Boundary" subtitle="Naive Bayes posterior regions for two selected features">
+                    <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                      <label className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                        Feature X axis
+                        <select
+                          value={selectedFeatures[0]}
+                          onChange={event => {
+                            const next = Number(event.target.value);
+                            setSelectedFeatures([next, next === selectedFeatures[1] ? (next + 1) % FEATURE_NAMES.length : selectedFeatures[1]]);
+                          }}
+                          className="mt-1 w-full rounded border border-gray-200 bg-white px-2 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                        >
+                          {FEATURE_LABELS.map((label, index) => <option key={label} value={index}>{label}</option>)}
+                        </select>
+                      </label>
+                      <label className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                        Feature Y axis
+                        <select
+                          value={selectedFeatures[1]}
+                          onChange={event => {
+                            const next = Number(event.target.value);
+                            setSelectedFeatures([next === selectedFeatures[0] ? (next + 1) % FEATURE_NAMES.length : selectedFeatures[0], next]);
+                          }}
+                          className="mt-1 w-full rounded border border-gray-200 bg-white px-2 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                        >
+                          {FEATURE_LABELS.map((label, index) => <option key={label} value={index}>{label}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                    <div className="relative h-[420px] overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-950">
+                      <div
+                        className="absolute inset-8 grid"
+                        style={{ gridTemplateColumns: `repeat(${boundaryView.size}, minmax(0, 1fr))` }}
+                      >
+                        {boundaryView.cells.map(cell => (
+                          <div
+                            key={`${cell.gx}-${cell.gy}`}
+                            title={`${CLASS_NAMES[cell.predicted]} (${(cell.confidence * 100).toFixed(1)}%)`}
+                            style={{ backgroundColor: CLASS_COLORS[cell.predicted], opacity: 0.18 + cell.confidence * 0.22 }}
+                          />
+                        ))}
+                      </div>
+                      <div className="absolute inset-8">
+                        {boundaryView.projectedPoints.map((point, index) => (
+                          <span
+                            key={index}
+                            className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-sm dark:border-gray-900"
+                            style={{
+                              left: `${point.xPct}%`,
+                              top: `${point.yPct}%`,
+                              backgroundColor: CLASS_COLORS[point.label],
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <span className="absolute bottom-2 left-8 text-xs text-gray-500">{FEATURE_LABELS[selectedFeatures[0]]}: {boundaryView.xMin.toFixed(1)} to {boundaryView.xMax.toFixed(1)}</span>
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 -rotate-90 text-xs text-gray-500">{FEATURE_LABELS[selectedFeatures[1]]}: {boundaryView.yMin.toFixed(1)} to {boundaryView.yMax.toFixed(1)}</span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                      {CLASS_NAMES.map((name, index) => (
+                        <span key={name} className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 dark:bg-gray-800">
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: CLASS_COLORS[index] }} />
+                          {name}
+                        </span>
+                      ))}
+                    </div>
                   </Card>
                 )}
 

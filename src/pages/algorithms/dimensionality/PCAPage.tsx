@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Bar, BarChart, CartesianGrid, Cell, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ResponsiveContainer } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ReferenceLine, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import { Minimize2 } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
@@ -8,6 +8,19 @@ import { pca } from '../../../lib/algorithms/dimensionality/pca';
 import { irisDataset, housingDataset } from '../../../data/sampleDatasets';
 
 const colors = ['#2563eb', '#059669', '#dc2626'];
+
+function reconstructFromPca(X: number[][], components: number[][], means: number[]) {
+  const centered = X.map(row => row.map((value, index) => value - means[index]));
+  const scores = centered.map(row => components.map(vector => row.reduce((sum, value, index) => sum + value * vector[index], 0)));
+  return scores.map(scoreRow => means.map((mean, featureIndex) =>
+    mean + components.reduce((sum, vector, componentIndex) => sum + scoreRow[componentIndex] * vector[featureIndex], 0)
+  ));
+}
+
+function mse(original: number[][], reconstructed: number[][]) {
+  const total = original.reduce((sum, row, i) => sum + row.reduce((inner, value, j) => inner + (value - reconstructed[i][j]) ** 2, 0), 0);
+  return total / (original.length * original[0].length);
+}
 
 function Matrix({ values, headers }: { values: number[][]; headers: string[] }) {
   return (
@@ -53,6 +66,32 @@ export default function PCAPage() {
   const projection = result.projections.map((row, i) => ({ pc1: row[0] ?? 0, pc2: row[1] ?? 0, label: prepared.labels[i], index: i }));
   const variance = result.explainedVarianceRatio.map((ratio, i) => ({ component: `PC${i + 1}`, explained: Number((ratio * 100).toFixed(2)) }));
   const totalExplained = result.explainedVarianceRatio.reduce((sum, value) => sum + value, 0);
+  const reconstruction = useMemo(() => {
+    const maxComponents = prepared.features.length;
+    const rows = Array.from({ length: maxComponents }, (_, index) => {
+      const k = index + 1;
+      const pcaResult = pca(prepared.X, k);
+      const reconstructed = reconstructFromPca(prepared.X, pcaResult.components, pcaResult.mean);
+      const cumulative = pcaResult.explainedVarianceRatio.reduce((sum, value) => sum + value, 0);
+      return {
+        components: k,
+        mse: Number(mse(prepared.X, reconstructed).toFixed(4)),
+        explained: Number((cumulative * 100).toFixed(2)),
+      };
+    });
+    const currentReconstructed = reconstructFromPca(prepared.X, result.components, result.mean);
+    const currentProjected = currentReconstructed.map((row, index) => {
+      const centered = row.map((value, featureIndex) => value - result.mean[featureIndex]);
+      return {
+        pc1: centered.reduce((sum, value, featureIndex) => sum + value * (result.components[0]?.[featureIndex] ?? 0), 0),
+        pc2: centered.reduce((sum, value, featureIndex) => sum + value * (result.components[1]?.[featureIndex] ?? 0), 0),
+        label: prepared.labels[index],
+        index,
+      };
+    });
+    const threshold = rows.find(row => row.explained >= 95)?.components ?? maxComponents;
+    return { rows, currentProjected, threshold };
+  }, [prepared.X, prepared.features.length, prepared.labels, result]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4">
@@ -101,8 +140,12 @@ export default function PCAPage() {
                   <Scatter data={projection}>
                     {projection.map((point, i) => <Cell key={i} fill={colors[Math.max(point.label, 0) % colors.length]} />)}
                   </Scatter>
+                  <Scatter data={reconstruction.currentProjected} shape="circle" fill="transparent" stroke="#111827" strokeWidth={1.5}>
+                    {reconstruction.currentProjected.map((point, i) => <Cell key={i} fill="transparent" stroke={colors[Math.max(point.label, 0) % colors.length]} />)}
+                  </Scatter>
                 </ScatterChart>
               </ResponsiveContainer>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Solid dots are original projections; hollow dots show the reconstruction after keeping {components} component{components === 1 ? '' : 's'}.</p>
             </Card>
             <Card title="Scree Plot">
               <ResponsiveContainer width="100%" height={320}>
@@ -119,6 +162,22 @@ export default function PCAPage() {
 
           <Card title="Covariance Matrix">
             <Matrix values={result.covarianceMatrix} headers={prepared.features} />
+          </Card>
+
+          <Card title="Reconstruction Error" subtitle="More components preserve more information, but each extra component costs dimensionality">
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={reconstruction.rows} margin={{ top: 10, right: 30, bottom: 20, left: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="components" tick={{ fontSize: 11 }} label={{ value: 'n_components', position: 'insideBottom', offset: -12, fontSize: 11 }} />
+                <YAxis yAxisId="left" tick={{ fontSize: 11 }} label={{ value: 'MSE', angle: -90, position: 'insideLeft', fontSize: 11 }} />
+                <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tick={{ fontSize: 11 }} label={{ value: 'Explained %', angle: 90, position: 'insideRight', fontSize: 11 }} />
+                <Tooltip />
+                <Legend />
+                <ReferenceLine x={reconstruction.threshold} stroke="#dc2626" strokeDasharray="5 4" label=">=95%" />
+                <Line yAxisId="left" dataKey="mse" name="Reconstruction MSE" stroke="#dc2626" strokeWidth={2.5} />
+                <Line yAxisId="right" dataKey="explained" name="Cumulative explained variance" stroke="#2563eb" strokeWidth={2.5} />
+              </LineChart>
+            </ResponsiveContainer>
           </Card>
 
           <Card title="Eigenvectors / Principal Components">

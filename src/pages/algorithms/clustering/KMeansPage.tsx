@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as mobilenet from '@tensorflow-models/mobilenet';
 import * as tf from '@tensorflow/tfjs';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Cell } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Cell, ReferenceLine } from 'recharts';
 import { FileImage, FolderOpen, Image as ImageIcon, Network, Play, Plus, RotateCcw, Target, Trash2, Upload } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
@@ -135,6 +135,23 @@ function distance(a: number[], b: number[]) {
 
 function assignToCentroids(values: number[][], centroids: number[][]) {
   return values.map(value => nearestCentroid(value, centroids).cluster);
+}
+
+function silhouetteScore(values: number[][], assignments: number[], clusterCount: number) {
+  if (values.length < 3 || clusterCount < 2) return 0;
+  const scores = values.map((value, index) => {
+    const ownCluster = assignments[index];
+    const same = values.filter((_, otherIndex) => assignments[otherIndex] === ownCluster && otherIndex !== index);
+    const a = same.length ? same.reduce((sum, other) => sum + distance(value, other), 0) / same.length : 0;
+    const otherMeans = Array.from({ length: clusterCount }, (_, cluster) => {
+      if (cluster === ownCluster) return Infinity;
+      const members = values.filter((_, otherIndex) => assignments[otherIndex] === cluster);
+      return members.length ? members.reduce((sum, other) => sum + distance(value, other), 0) / members.length : Infinity;
+    });
+    const b = Math.min(...otherMeans);
+    return Number.isFinite(b) && Math.max(a, b) > 0 ? (b - a) / Math.max(a, b) : 0;
+  });
+  return scores.reduce((sum, value) => sum + value, 0) / scores.length;
 }
 
 function calculateInertia(values: number[][], assignments: number[], centroids: number[][]) {
@@ -305,6 +322,15 @@ export default function KMeansPage() {
     ? elbowMethod(activeX, Math.min(8, activeX.length)).map((inertia, i) => ({ k: i + 2, inertia: Number(inertia.toFixed(2)) }))
     : [],
   [activeX, mode, result]);
+  const silhouette = useMemo(() => activeX.length >= 4 && (mode === 'points' || Boolean(result))
+    ? Array.from({ length: Math.min(9, activeX.length - 1) }, (_, index) => {
+      const candidateK = index + 2;
+      const candidate = kmeans(activeX, candidateK, Math.min(maxIter, 50), init);
+      return { k: candidateK, silhouette: Number(silhouetteScore(activeX, candidate.assignments, candidateK).toFixed(4)) };
+    })
+    : [],
+  [activeX, init, maxIter, mode, result]);
+  const suggestedK = silhouette.reduce((best, item) => item.silhouette > best.silhouette ? item : best, { k: 0, silhouette: -Infinity }).k;
   const movement = result?.steps.map(item => ({ iteration: item.iteration, inertia: Number(item.inertia.toFixed(3)) })) ?? [];
   const studentPrediction = useMemo(() => {
     if (source !== 'students') return null;
@@ -797,6 +823,19 @@ export default function KMeansPage() {
                   <Line type="monotone" dataKey="inertia" stroke="#059669" strokeWidth={2} dot />
                 </LineChart>
               </ResponsiveContainer>
+            </Card>
+            <Card title="Silhouette Score by k">
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={silhouette}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="k" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} domain={[-1, 1]} />
+                  <Tooltip formatter={(value: number) => value.toFixed(4)} />
+                  {suggestedK > 0 && <ReferenceLine x={suggestedK} stroke="#dc2626" strokeDasharray="4 3" label={{ value: 'Suggested k', fontSize: 10, fill: '#dc2626' }} />}
+                  <Line type="monotone" dataKey="silhouette" stroke="#9333ea" strokeWidth={2} dot />
+                </LineChart>
+              </ResponsiveContainer>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Silhouette compares within-cluster distance against the nearest other cluster. Its peak may disagree with the elbow, which is the useful lesson.</p>
             </Card>
           </div>
 
