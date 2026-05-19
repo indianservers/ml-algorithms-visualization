@@ -231,6 +231,7 @@ export const navigationData: NavCategory[] = [
       { label: 'Saved Experiments', route: '/ml/lab/saved-experiments', badge: 'Intermediate' },
       { label: 'Dataset Manager', route: '/ml/lab/dataset-manager', badge: 'Beginner' },
       { label: 'Report Builder', route: '/ml/lab/report-builder', badge: 'Intermediate' },
+      { label: 'Architecture Flow Lab', route: '/ml/lab/architecture-flow', badge: 'Educational' },
     ],
   },
 ];

@@ -16,9 +16,19 @@ interface PageHeaderProps {
   badge: BadgeType | string;
   category: string;
   icon?: React.ReactNode;
+  showAlgorithmIntro?: boolean;
+  showAlgorithmTools?: boolean;
 }
 
-export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, badge, category, icon }) => {
+export const PageHeader: React.FC<PageHeaderProps> = ({
+  title,
+  subtitle,
+  badge,
+  category,
+  icon,
+  showAlgorithmIntro = true,
+  showAlgorithmTools = true,
+}) => {
   const location = useLocation();
   const parts = location.pathname.split('/').filter(Boolean);
   const isAlgorithmRoute = location.pathname.startsWith('/ml/');
@@ -68,7 +78,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, badge, 
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{category}</p>
           <p className="text-sm text-gray-600 dark:text-gray-300">{subtitle}</p>
-          {currentAlgorithm && <AlgorithmIntroduction algorithm={currentAlgorithm} />}
+          {showAlgorithmIntro && currentAlgorithm && <AlgorithmIntroduction algorithm={currentAlgorithm} />}
           {related.length > 0 && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Related</span>
@@ -91,7 +101,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, badge, 
           )}
         </div>
       </div>
-      {isAlgorithmRoute && (
+      {showAlgorithmTools && isAlgorithmRoute && (
         <div className="mt-4 space-y-4">
           <LearningCompanion route={location.pathname} compact />
           <AlgorithmDatasetLoader route={location.pathname} category={category} />

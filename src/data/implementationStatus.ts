@@ -125,6 +125,7 @@ const implementedRoutes = new Set([
   '/ml/lab/dataset-manager',
   '/ml/lab/saved-experiments',
   '/ml/lab/report-builder',
+  '/ml/lab/architecture-flow',
 ]);
 
 const conceptRoutes = new Set(

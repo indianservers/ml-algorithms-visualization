@@ -153,6 +153,7 @@ const AutoMLConceptLabPage = lazy(() => import('../pages/algorithms/lab/AutoMLCo
 const SavedExperimentsPage = lazy(() => import('../pages/algorithms/lab/SavedExperimentsPage'));
 const DatasetManagerPage = lazy(() => import('../pages/algorithms/lab/DatasetManagerPage'));
 const ReportBuilderPage = lazy(() => import('../pages/algorithms/lab/ReportBuilderPage'));
+const ArchitectureFlowLabPage = lazy(() => import('../pages/algorithms/lab/ArchitectureFlowLabPage'));
 
 export const router = createBrowserRouter([
   {
@@ -291,6 +292,7 @@ export const router = createBrowserRouter([
       { path: 'ml/lab/saved-experiments', element: <SavedExperimentsPage /> },
       { path: 'ml/lab/dataset-manager', element: <DatasetManagerPage /> },
       { path: 'ml/lab/report-builder', element: <ReportBuilderPage /> },
+      { path: 'ml/lab/architecture-flow', element: <ArchitectureFlowLabPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },
