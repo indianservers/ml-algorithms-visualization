@@ -16,16 +16,22 @@ export interface KMeansResult {
 }
 
 function randomCentroids(X: number[][], k: number): number[][] {
+  if (k < 1 || k > X.length) throw new Error(`k must be between 1 and the number of samples (${X.length})`);
   const indices = new Set<number>();
   while (indices.size < k) indices.add(Math.floor(Math.random() * X.length));
   return [...indices].map(i => [...X[i]]);
 }
 
 function kMeansPlusPlusCentroids(X: number[][], k: number): number[][] {
+  if (k < 1 || k > X.length) throw new Error(`k must be between 1 and the number of samples (${X.length})`);
   const centroids: number[][] = [X[Math.floor(Math.random() * X.length)]];
   while (centroids.length < k) {
     const distances = X.map(x => Math.min(...centroids.map(c => euclideanDistance(x, c) ** 2)));
     const total = distances.reduce((a, b) => a + b, 0);
+    if (total <= 1e-12) {
+      centroids.push([...X[centroids.length % X.length]]);
+      continue;
+    }
     let r = Math.random() * total;
     for (let i = 0; i < X.length; i++) {
       r -= distances[i];

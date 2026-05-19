@@ -101,7 +101,7 @@ export default function NeuralNetworkPlaygroundPage() {
           </Card>
           <MetricsPanel title="Training Metrics" metrics={[
             { label: 'Loss', value: latest?.loss ?? 0, format: 'fixed4', color: 'blue' },
-            { label: 'Accuracy', value: latest?.accuracy ?? 0, format: 'percent', color: 'green' },
+            { label: 'Train Accuracy', value: latest?.accuracy ?? 0, format: 'percent', color: 'green' },
             { label: 'Hidden', value: hidden, format: 'number' },
             { label: 'Params', value: hidden * 4 + 1, format: 'number' },
           ]} />
@@ -126,7 +126,7 @@ export default function NeuralNetworkPlaygroundPage() {
           </Card>
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <Card title="Loss and Accuracy">
+            <Card title="Training Loss and Accuracy">
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart data={model.losses}>
                   <CartesianGrid strokeDasharray="3 3" />

@@ -7,7 +7,7 @@ import { Scale } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
 import { Tabs } from '../../../components/common/Tabs';
-import { mean, std } from '../../../lib/math/statistics';
+import { mean, median, quantile, std } from '../../../lib/math/statistics';
 
 // ─── Built-in sample data ─────────────────────────────────────────────────────
 interface DataRow { income: number; age: number; credit_score: number; debt_ratio: number }
@@ -46,16 +46,10 @@ function zscoreScale(vals: number[]): number[] {
 }
 
 function medianVal(vals: number[]): number {
-  const s = [...vals].sort((a, b) => a - b);
-  const m = Math.floor(s.length / 2);
-  return s.length % 2 === 0 ? (s[m - 1] + s[m]) / 2 : s[m];
+  return median(vals);
 }
 function iqrVal(vals: number[]): number {
-  const s = [...vals].sort((a, b) => a - b);
-  const n = s.length;
-  const q1 = s[Math.floor(n * 0.25)];
-  const q3 = s[Math.floor(n * 0.75)];
-  return q3 - q1;
+  return quantile(vals, 0.75) - quantile(vals, 0.25);
 }
 function robustScale(vals: number[]): number[] {
   const med = medianVal(vals), iq = iqrVal(vals);

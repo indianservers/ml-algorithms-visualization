@@ -29,7 +29,7 @@ const starterPointCsv = `x,y,label
 type PointRow = { x: number; y: number; label: string };
 type ImageSample = { id: string; name: string; group: string; preview: string; feature: number[]; x: number; y: number; source: 'dataset' | 'upload' };
 type DatasetImage = { url: string; name: string; group: string };
-type InferenceSample = { name: string; preview: string; group: string; distance: number; confidence: number };
+type InferenceSample = { name: string; preview: string; group: string; distance: number; similarity: number };
 type ProgressState = { phase: string; current: number; total: number };
 type PointSource = 'editable' | 'synthetic' | 'mall' | 'students';
 
@@ -358,9 +358,14 @@ export default function KMeansPage() {
   }, [images, k, mode, result]);
 
   useEffect(() => {
-    setImageResult(null);
-    setInference(null);
-    setTrainingProgress(null);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setImageResult(null);
+      setInference(null);
+      setTrainingProgress(null);
+    });
+    return () => { cancelled = true; };
   }, [imageFeatures, init, k, maxIter]);
 
   const extractFeature = async (image: HTMLImageElement) => {
@@ -475,13 +480,13 @@ export default function KMeansPage() {
       const normalized = normalizeEmbedding(feature);
       const nearest = nearestCentroid(normalized, result.centroids);
       const labelInfo = clusterLabels[nearest.cluster];
-      const confidence = Math.max(0, Math.min(1, 1 / (1 + nearest.distance)));
+      const similarity = Math.max(0, Math.min(1, 1 / (1 + nearest.distance)));
       setInference({
         name: file.name,
         preview,
         group: labelInfo?.label ?? `Cluster ${nearest.cluster + 1}`,
         distance: nearest.distance,
-        confidence: labelInfo ? confidence * labelInfo.purity : confidence,
+        similarity: labelInfo ? similarity * labelInfo.purity : similarity,
       });
       setImageStatus(`Query image assigned to Cluster ${nearest.cluster + 1}.`);
     } catch (error) {
@@ -741,7 +746,7 @@ export default function KMeansPage() {
                   <img src={inference.preview} alt="" className="h-16 w-16 rounded object-cover" />
                   <div>
                     <p className="font-bold text-emerald-700 dark:text-emerald-300">Inference: {inference.group}</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">{inference.name} nearest-cluster distance {inference.distance.toFixed(3)} - confidence {(inference.confidence * 100).toFixed(1)}%</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">{inference.name} nearest-cluster distance {inference.distance.toFixed(3)} - similarity score {(inference.similarity * 100).toFixed(1)}%</p>
                   </div>
                 </div>
               )}

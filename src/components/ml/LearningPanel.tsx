@@ -12,8 +12,18 @@ interface LearningPanelProps {
 }
 
 export const LearningPanel: React.FC<LearningPanelProps> = ({ sections, defaultOpen = false }) => {
-  const [open, setOpen] = useState(defaultOpen);
-  const [expanded, setExpanded] = useState<Set<number>>(new Set([0]));
+  const storageKey = `ml-suite-learning-panel:${window.location.pathname}`;
+  const [open, setOpen] = useState(() => {
+    const saved = localStorage.getItem(`${storageKey}:open`);
+    return saved === null ? defaultOpen : saved === 'true';
+  });
+  const [expanded, setExpanded] = useState<Set<number>>(() => {
+    const saved = localStorage.getItem(`${storageKey}:expanded`);
+    if (saved) {
+      try { return new Set(JSON.parse(saved) as number[]); } catch { localStorage.removeItem(`${storageKey}:expanded`); }
+    }
+    return new Set([0]);
+  });
 
   const toggleSection = (i: number) => {
     setExpanded(prev => {
@@ -25,8 +35,16 @@ export const LearningPanel: React.FC<LearningPanelProps> = ({ sections, defaultO
   };
   const allExpanded = expanded.size === sections.length;
 
+  React.useEffect(() => {
+    localStorage.setItem(`${storageKey}:open`, String(open));
+  }, [open, storageKey]);
+
+  React.useEffect(() => {
+    localStorage.setItem(`${storageKey}:expanded`, JSON.stringify([...expanded]));
+  }, [expanded, storageKey]);
+
   return (
-    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 border border-blue-200 dark:border-blue-800 rounded-xl">
+    <div data-learning-explanation className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 border border-blue-200 dark:border-blue-800 rounded-xl">
       <button
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between px-4 py-3 text-left"

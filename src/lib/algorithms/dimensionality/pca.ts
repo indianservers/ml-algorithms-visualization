@@ -46,7 +46,7 @@ function powerIteration(A: number[][], numComponents: number, maxIter = 500): { 
     }
     const eigenvalue = deflated.map((row, i) => row.reduce((s, x, j) => s + x * v[j], 0) * v[i]).reduce((a, b) => a + b, 0);
     vectors.push(v);
-    values.push(Math.abs(eigenvalue));
+    values.push(Math.max(eigenvalue, 0));
     // Deflate
     for (let i = 0; i < p; i++)
       for (let j = 0; j < p; j++)
@@ -62,7 +62,7 @@ export function pca(X: number[][], numComponents = 2): PCAResult {
   const cov = covarianceMatrix(Xc);
   const k = Math.min(numComponents, p);
   const { vectors, values } = powerIteration(cov, k);
-  const totalVar = values.reduce((a, b) => a + b, 0) || 1;
+  const totalVar = cov.reduce((sum, row, i) => sum + row[i], 0) || 1;
   const projections = Xc.map(row =>
     vectors.map(v => row.reduce((s, x, j) => s + x * v[j], 0))
   );

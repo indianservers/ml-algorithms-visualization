@@ -7,8 +7,8 @@ export function MatrixViewer({ title, matrix, rowLabels, colLabels }: { title: s
       {matrix.length === 0 ? (
         <EmptyState title="Matrix is empty" message="Run the algorithm or choose data to populate the matrix grid." />
       ) : (
-      <div className="overflow-auto">
-        <table className="w-full text-xs sm:text-sm" aria-label={title}>
+      <div className="responsive-table">
+        <table className="matrix-grid w-full text-xs sm:text-sm" aria-label={title}>
           <thead>
             <tr>
               <th className="min-h-10 min-w-12 p-2 text-left text-[11px] uppercase tracking-wide text-gray-400">row / col</th>

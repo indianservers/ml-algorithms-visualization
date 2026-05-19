@@ -17,6 +17,7 @@ import {
 import type { AlgorithmNavItem } from '../data/implementationStatus';
 import { Badge } from '../components/common/Badge';
 import { RouteSearchModal } from '../components/common/RouteSearchModal';
+import { UXEnhancements } from '../components/common/UXEnhancements';
 import { AlgorithmFAQ } from '../components/learning/AlgorithmFAQ';
 import { getSeoMetadata, routeToUrl, siteConfig } from '../data/seo';
 import { getLearnerNote, saveLearnerNote } from '../stores/learningStore';
@@ -484,6 +485,7 @@ export const RootLayout: React.FC = () => {
 
   return (
     <div className={`flex h-screen w-full overflow-hidden bg-gray-50 dark:bg-gray-950 ${theme === 'dark' ? 'dark' : ''}`}>
+      <a href="#main-content" className="skip-link print:hidden">Skip to content</a>
       <div className="hidden h-full min-h-0 md:block">
         <Sidebar collapsed={collapsed} onToggle={toggle} />
       </div>
@@ -727,7 +729,7 @@ export const RootLayout: React.FC = () => {
           </div>
         )}
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
+        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={location.pathname}
@@ -753,6 +755,7 @@ export const RootLayout: React.FC = () => {
       <RouteSearchModal open={routeSearchOpen} onClose={() => setRouteSearchOpen(false)} />
       <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <NotesPanel open={notesOpen} route={currentItem?.route} title={currentItem?.label} onClose={() => setNotesOpen(false)} />
+      <UXEnhancements routeLabel={currentItem?.label ?? seo.title} />
     </div>
   );
 };

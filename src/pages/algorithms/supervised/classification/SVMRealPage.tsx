@@ -94,10 +94,10 @@ export default function SVMRealPage() {
               <label className="block">Epochs: <b>{epochs}</b><input type="range" min={20} max={180} step={10} value={epochs} onChange={event => setEpochs(Number(event.target.value))} className="w-full accent-blue-600" /></label>
             </div>
           </Card>
-          <MetricsPanel title="SVM Metrics" metrics={[
-            { label: 'Accuracy', value: metrics.accuracy, format: 'percent', color: 'green' },
-            { label: 'Precision', value: metrics.precision, format: 'percent' },
-            { label: 'Recall', value: metrics.recall, format: 'percent' },
+          <MetricsPanel title="SVM Training Metrics" metrics={[
+            { label: 'Train Accuracy', value: metrics.accuracy, format: 'percent', color: 'green' },
+            { label: 'Train Precision', value: metrics.precision, format: 'percent' },
+            { label: 'Train Recall', value: metrics.recall, format: 'percent' },
             { label: 'Support Vectors', value: chartPoints.filter(point => point.support).length, format: 'number', color: 'blue' },
           ]} />
         </div>
@@ -118,7 +118,7 @@ export default function SVMRealPage() {
               </ScatterChart>
             </ResponsiveContainer>
           </Card>
-          <Card title="Hinge Loss and Accuracy">
+          <Card title="Training Hinge Loss and Accuracy">
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={model.lossHistory}>
                 <CartesianGrid strokeDasharray="3 3" />

@@ -71,10 +71,14 @@ export function rocCurve(actual: number[], scores: number[]): { fpr: number[]; t
   const totalNeg = actual.length - totalPos;
   let tp = 0, fp = 0;
   const points: { fpr: number; tpr: number; t: number }[] = [{ fpr: 0, tpr: 0, t: Infinity }];
-  sorted.forEach(({ s, a }) => {
-    if (a === 1) tp++; else fp++;
-    points.push({ fpr: fp / (totalNeg || 1), tpr: tp / (totalPos || 1), t: s });
-  });
+  for (let i = 0; i < sorted.length;) {
+    const threshold = sorted[i].s;
+    while (i < sorted.length && sorted[i].s === threshold) {
+      if (sorted[i].a === 1) tp++; else fp++;
+      i++;
+    }
+    points.push({ fpr: fp / (totalNeg || 1), tpr: tp / (totalPos || 1), t: threshold });
+  }
   const fpr = points.map(p => p.fpr);
   const tpr = points.map(p => p.tpr);
   const thresholds = points.map(p => p.t);
@@ -90,12 +94,16 @@ export function precisionRecallCurve(actual: number[], scores: number[]): { prec
   const totalPos = actual.filter(a => a === 1).length;
   let tp = 0, fp = 0;
   const prec: number[] = [], rec: number[] = [], thr: number[] = [];
-  sorted.forEach(({ s, a }) => {
-    if (a === 1) tp++; else fp++;
+  for (let i = 0; i < sorted.length;) {
+    const threshold = sorted[i].s;
+    while (i < sorted.length && sorted[i].s === threshold) {
+      if (sorted[i].a === 1) tp++; else fp++;
+      i++;
+    }
     prec.push(tp / (tp + fp));
     rec.push(tp / (totalPos || 1));
-    thr.push(s);
-  });
+    thr.push(threshold);
+  }
   return { precision: prec, recall: rec, thresholds: thr };
 }
 

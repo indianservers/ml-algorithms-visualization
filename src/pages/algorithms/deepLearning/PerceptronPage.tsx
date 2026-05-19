@@ -57,8 +57,8 @@ export default function PerceptronPage() {
             </div>
           </Card>
 
-          <MetricsPanel title="Perceptron Metrics" metrics={[
-            { label: 'Accuracy', value: accuracy, format: 'percent', color: 'green' },
+          <MetricsPanel title="Training Metrics" metrics={[
+            { label: 'Train Accuracy', value: accuracy, format: 'percent', color: 'green' },
             { label: 'Errors', value: active?.errors ?? 0, format: 'number', color: active?.errors ? 'red' : 'green' },
             { label: 'Weight w1', value: weights[0] ?? 0, format: 'fixed4' },
             { label: 'Bias', value: bias, format: 'fixed4' },

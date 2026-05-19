@@ -11,6 +11,7 @@ import { trainGaussianNB } from '../../../lib/algorithms/classification/naiveBay
 import { buildDecisionTree, predictTree } from '../../../lib/algorithms/classification/decisionTree';
 import { generateSyntheticBlobs, generateSyntheticMoons, irisDataset, loanDataset } from '../../../data/sampleDatasets';
 import { mean } from '../../../lib/math/statistics';
+import { trainTestSplit } from '../../../lib/preprocessing/trainTestSplit';
 import { Copy, Download, FlaskConical, CheckSquare, Square } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -110,22 +111,6 @@ const DATASET_OPTIONS: DatasetOption[] = [
 ];
 
 // ── Train/test split ──────────────────────────────────────────────────────
-function trainTestSplit(X: number[][], y: number[], testRatio = 0.25): {
-  trainX: number[][]; trainY: number[]; testX: number[][]; testY: number[];
-} {
-  const n = X.length;
-  const indices = Array.from({ length: n }, (_, i) => i).sort(() => Math.random() - 0.5);
-  const split = Math.floor(n * (1 - testRatio));
-  const trainIdx = indices.slice(0, split);
-  const testIdx = indices.slice(split);
-  return {
-    trainX: trainIdx.map(i => X[i]),
-    trainY: trainIdx.map(i => y[i]),
-    testX: testIdx.map(i => X[i]),
-    testY: testIdx.map(i => y[i]),
-  };
-}
-
 // ── Decision boundary grid ────────────────────────────────────────────────
 function buildDecisionGrid(
   predictFn: (x: number[]) => number,
@@ -179,7 +164,7 @@ export default function AlgorithmComparisonLabPage() {
 
     setTimeout(() => {
       const { X, y } = dsOption.generate();
-      const { trainX, trainY, testX, testY } = trainTestSplit(X, y);
+      const { trainX, trainY, testX, testY } = trainTestSplit(X, y, 0.25, 42, true);
       const is2D = X[0].length === 2;
 
       // Compute grid extent for decision boundaries

@@ -10,7 +10,7 @@ import { Tabs } from '../../../components/common/Tabs';
 import { MetricsPanel } from '../../../components/ml/MetricsPanel';
 import { HyperparameterPanel, HyperparamDef } from '../../../components/ml/HyperparameterPanel';
 import { LearningPanel } from '../../../components/ml/LearningPanel';
-import { knnPredict, knnClassifyAll } from '../../../../lib/algorithms/classification/knn';
+import { knnPredict } from '../../../../lib/algorithms/classification/knn';
 import { generateSyntheticBlobs } from '../../../../data/sampleDatasets';
 import { irisDataset } from '../../../../data/sampleDatasets';
 
@@ -50,8 +50,11 @@ export default function KNNClassificationPage() {
 
   const classes = useMemo(() => [...new Set(trainY)].sort(), [trainY]);
 
-  // Accuracy via leave-nothing-out (all train as test, just for display)
-  const allPredictions = useMemo(() => knnClassifyAll(trainX, trainY, trainX, k, metric), [trainX, trainY, k, metric]);
+  const allPredictions = useMemo(() => trainX.map((point, index) => {
+    const looX = trainX.filter((_, i) => i !== index);
+    const looY = trainY.filter((_, i) => i !== index);
+    return knnPredict(looX, looY, point, Math.min(k, looX.length), metric).predictedClass;
+  }), [trainX, trainY, k, metric]);
   const accuracy = useMemo(() => allPredictions.filter((p, i) => p === trainY[i]).length / trainY.length, [allPredictions, trainY]);
 
   // Decision boundary grid
@@ -159,7 +162,7 @@ export default function KNNClassificationPage() {
           <MetricsPanel
             title="Performance"
             metrics={[
-              { label: 'Accuracy', value: accuracy, format: 'percent', color: accuracy > 0.8 ? 'green' : 'default' },
+              { label: 'LOO Accuracy', value: accuracy, format: 'percent', color: accuracy > 0.8 ? 'green' : 'default' },
               { label: 'K', value: k, format: 'fixed2' },
               { label: 'Metric', value: metric },
               { label: 'Samples', value: data.length, format: 'fixed2' },

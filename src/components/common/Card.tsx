@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, HelpCircle, Maximize2 } from 'lucide-react';
+import { ChevronDown, Download, HelpCircle, Maximize2 } from 'lucide-react';
 import { getAlgorithmByRoute } from '../../data/implementationStatus';
 import { getAlgorithmFaqs } from '../../data/algorithmFaqs';
 import { getAlgorithmIntroduction } from '../../data/algorithmIntroductions';
@@ -16,10 +16,18 @@ interface CardProps {
 }
 
 export const Card: React.FC<CardProps> = ({ title, subtitle, children, className = '', actions, collapsible, icon }) => {
-  const [collapsed, setCollapsed] = React.useState(false);
+  const autoCollapsible = Boolean(title && /(theory|learning|notes|explanation|how it works|formula|concept|guide|checklist|faq)/i.test(title));
+  const canCollapse = Boolean(collapsible || autoCollapsible);
+  const storageKey = title ? `ml-suite-card-collapsed:${window.location.pathname}:${title}` : '';
+  const [collapsed, setCollapsed] = React.useState(() => {
+    if (!canCollapse || !storageKey) return false;
+    return localStorage.getItem(storageKey) === 'true';
+  });
   const [explanationOpen, setExplanationOpen] = React.useState(false);
   const chartTitle = Boolean(title && /(chart|plot|curve|matrix|boundary|surface|distribution|metrics|loss|accuracy|residual)/i.test(title));
   const chartLike = Boolean(chartTitle && !actions);
+  const stickyControls = Boolean(title && /(controls|parameters|hyperparameters)/i.test(title));
+  const panelId = React.useId();
   const chartExplanation = React.useMemo(() => {
     const algorithm = getAlgorithmByRoute(window.location.pathname);
     if (!algorithm) return 'This chart turns the current page data into a visual pattern. Check the axes, compare color groups, and look for whether the output matches the expected trend.';
@@ -27,9 +35,20 @@ export const Card: React.FC<CardProps> = ({ title, subtitle, children, className
     const faq = getAlgorithmFaqs(algorithm)[0]?.answer;
     return `This view helps explain ${algorithm.label}. The axes, bars, lines, or regions show how the model behaves as inputs or training steps change. A good result should support the lesson goal while avoiding: ${intro.watchFor} ${faq ?? ''}`;
   }, []);
+  const toggleCollapsed = () => {
+    setCollapsed(value => {
+      const next = !value;
+      if (canCollapse && storageKey) localStorage.setItem(storageKey, String(next));
+      return next;
+    });
+  };
 
   return (
-    <div data-chart-container={chartTitle ? 'true' : undefined} className={`min-w-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${className}`}>
+    <div
+      data-chart-container={chartTitle ? 'true' : undefined}
+      data-control-panel={stickyControls ? 'true' : undefined}
+      className={`min-w-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm ${stickyControls ? 'lg:sticky lg:top-28 lg:self-start' : ''} ${className}`}
+    >
       {(title || actions) && (
         <div className="flex flex-col gap-2 px-3 py-3 border-b border-gray-200 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between sm:px-4">
           <div className="min-w-0">
@@ -85,15 +104,26 @@ export const Card: React.FC<CardProps> = ({ title, subtitle, children, className
                 <Maximize2 size={14} />
               </button>
             )}
-            {collapsible && (
-              <button onClick={() => setCollapsed(c => !c)} className="min-h-10 rounded px-2 py-2 text-xs text-gray-400 hover:text-gray-600">
+            {canCollapse && (
+              <button
+                onClick={toggleCollapsed}
+                className="inline-flex min-h-10 items-center gap-1 rounded px-2 py-2 text-xs font-semibold text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                aria-expanded={!collapsed}
+                aria-controls={panelId}
+                title={collapsed ? 'Expand panel' : 'Collapse panel'}
+              >
+                <ChevronDown size={13} className={`transition-transform ${collapsed ? '-rotate-90' : ''}`} />
                 {collapsed ? 'Expand' : 'Collapse'}
               </button>
             )}
           </div>
         </div>
       )}
-      {!collapsed && <div className="min-w-0 p-3 sm:p-4">{children}</div>}
+      <div id={panelId} className={`grid transition-[grid-template-rows] duration-300 ease-out ${collapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'}`}>
+        <div className="min-w-0 overflow-hidden">
+          <div className="min-w-0 p-3 sm:p-4">{children}</div>
+        </div>
+      </div>
     </div>
   );
 };

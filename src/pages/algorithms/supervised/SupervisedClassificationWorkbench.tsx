@@ -113,11 +113,11 @@ export default function SupervisedClassificationWorkbench({ mode }: { mode: Clas
             {mode === 'svm' && <><label className="text-xs font-semibold">C: {cValue.toFixed(1)}</label><input className="w-full accent-blue-600" type="range" min={0.2} max={3} step={0.1} value={cValue} onChange={e => setCValue(Number(e.target.value))} /></>}
             {binary && <><label className="text-xs font-semibold">Threshold: {threshold.toFixed(2)}</label><input className="w-full accent-blue-600" type="range" min={0.1} max={0.9} step={0.05} value={threshold} onChange={e => setThreshold(Number(e.target.value))} /></>}
           </Card>
-          <MetricsPanel title="Classification Metrics" metrics={[
-            { label: 'Accuracy', value: accuracy, format: 'percent', color: 'green' },
-            { label: 'Precision', value: metric?.precision ?? accuracy, format: 'percent' },
-            { label: 'Recall', value: metric?.recall ?? accuracy, format: 'percent' },
-            { label: 'F1', value: metric?.f1 ?? accuracy, format: 'percent', color: 'blue' },
+          <MetricsPanel title="Training Metrics" metrics={[
+            { label: 'Train Accuracy', value: accuracy, format: 'percent', color: 'green' },
+            { label: 'Train Precision', value: metric?.precision ?? accuracy, format: 'percent' },
+            { label: 'Train Recall', value: metric?.recall ?? accuracy, format: 'percent' },
+            { label: 'Train F1', value: metric?.f1 ?? accuracy, format: 'percent', color: 'blue' },
           ]} />
         </div>
         <div className="space-y-4">

@@ -69,7 +69,8 @@ export function qLearning(
       const reward = getReward(grid, nr, nc);
       totalReward += reward;
       const nextKey = stateKey(nr, nc);
-      const maxNextQ = Math.max(...ACTIONS.map(a => qTable[nextKey]?.[a] ?? 0));
+      const terminal = grid.cells[nr][nc] === 'goal';
+      const maxNextQ = terminal ? 0 : Math.max(...ACTIONS.map(a => qTable[nextKey]?.[a] ?? 0));
       qTable[key][action] += learningRate * (reward + discount * maxNextQ - qTable[key][action]);
       r = nr; c = nc;
       steps++;

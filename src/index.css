@@ -8,15 +8,21 @@
   body { margin: 0; overflow-x: hidden; font-family: system-ui, -apple-system, sans-serif; }
   #root { width: 100%; height: 100vh; overflow: hidden; display: flex; }
   button, a, input, select, textarea { touch-action: manipulation; }
+  button, a, input, select, textarea { transition-property: color, background-color, border-color, box-shadow, transform; transition-duration: 150ms; }
   button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-    outline: 2px solid #2563eb;
-    outline-offset: 2px;
+    outline: 3px solid #2563eb;
+    outline-offset: 3px;
   }
   img, canvas, svg, video { max-width: 100%; }
+  table { border-collapse: separate; border-spacing: 0; }
+  th, td { vertical-align: middle; }
+  main :target { scroll-margin-top: 140px; }
   .teacher-mode body { font-size: 18px; }
   .teacher-mode .text-xs { font-size: 0.875rem; line-height: 1.35rem; }
   .teacher-mode .text-sm { font-size: 1rem; line-height: 1.55rem; }
+  .teacher-mode button, .teacher-mode input, .teacher-mode select, .teacher-mode textarea { min-height: 2.75rem; }
   .practice-mode [data-learning-explanation] { display: none !important; }
+  .practice-mode [data-practice-hide] { display: none !important; }
 }
 
 @layer utilities {
@@ -62,6 +68,40 @@
   .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
   .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
   .dark .scrollbar-thin::-webkit-scrollbar-thumb { background: #475569; }
+  .skip-link {
+    position: fixed;
+    left: 0.75rem;
+    top: 0.75rem;
+    z-index: 9999;
+    transform: translateY(-150%);
+    border-radius: 0.5rem;
+    background: #2563eb;
+    color: white;
+    padding: 0.65rem 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+  .skip-link:focus { transform: translateY(0); }
+  .responsive-table {
+    width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  .responsive-table table {
+    min-width: 42rem;
+  }
+  .axis-label {
+    fill: #4b5563;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .dark .axis-label { fill: #d1d5db; }
+  [data-control-panel="true"] {
+    scroll-margin-top: 8rem;
+  }
+  [data-chart-container="true"] {
+    scroll-margin-top: 8rem;
+  }
   .quiz-confetti {
     position: absolute;
     top: 18px;
@@ -77,8 +117,33 @@
   }
 }
 
+@media (max-width: 640px) {
+  table.matrix-grid td,
+  table.matrix-grid th {
+    min-width: 3.75rem;
+    min-height: 3rem;
+    padding: 0.85rem;
+  }
+  [data-control-panel="true"] {
+    position: static;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
 @media print {
   .practice-mode [data-learning-explanation] { display: block !important; }
-  nav, aside, button, [role="dialog"] { print-color-adjust: exact; }
-  body { background: white !important; color: black !important; }
+  nav, aside, button, [role="dialog"], .print\:hidden { display: none !important; }
+  body, #root, main { height: auto !important; overflow: visible !important; background: white !important; color: black !important; }
+  [data-chart-container="true"], section, article, .rounded-lg, .rounded-xl { break-inside: avoid; box-shadow: none !important; }
+  a { color: black !important; text-decoration: none !important; }
+  canvas, svg, img { max-height: 70vh; }
+  @page { margin: 0.55in; }
 }

@@ -150,11 +150,11 @@ export default function NaiveBayesPage() {
           </Card>
 
           <MetricsPanel
-            title="Classification Metrics"
+            title="Training Metrics"
             metrics={[
-              { label: 'Accuracy', value: accuracy, format: 'percent', color: accuracy > 0.85 ? 'green' : 'default' },
-              { label: 'Macro F1', value: macroF1, format: 'percent', color: 'blue' },
-              ...perClassMetrics.map(m => ({ label: `F1 (${CLASS_NAMES[m.class]})`, value: m.f1, format: 'percent' as const })),
+              { label: 'Train Accuracy', value: accuracy, format: 'percent', color: accuracy > 0.85 ? 'green' : 'default' },
+              { label: 'Train Macro F1', value: macroF1, format: 'percent', color: 'blue' },
+              ...perClassMetrics.map(m => ({ label: `Train F1 (${CLASS_NAMES[m.class]})`, value: m.f1, format: 'percent' as const })),
             ]}
           />
 

@@ -10,7 +10,8 @@ import { Card, InfoBox } from '../../../components/common/Card';
 import { housingDataset, studentMarksDataset, timeSeriesSalesDataset } from '../../../data/sampleDatasets';
 import { multipleLinearRegression, polynomialFeatures, simpleLinearRegression } from '../../../lib/algorithms/regression/linearRegression';
 import { rmse } from '../../../lib/math/metrics';
-import { mean, std } from '../../../lib/math/statistics';
+import { mean, median } from '../../../lib/math/statistics';
+import { kFoldSplit } from '../../../lib/preprocessing/trainTestSplit';
 
 type Mode =
   | 'cross-validation'
@@ -81,7 +82,8 @@ function correlation(a: number[], b: number[]) {
 }
 
 function seededNoise(index: number) {
-  return Math.sin(index * 12.9898) * 43758.5453 % 1;
+  const raw = Math.sin(index * 12.9898) * 43758.5453;
+  return raw - Math.floor(raw);
 }
 
 function fitPolynomial(points: { x: number; y: number }[], degree: number) {
@@ -116,13 +118,11 @@ export default function RealAlgorithmMiniLab({ mode }: { mode: Mode }) {
       const rows = housingDataset.data as Array<Record<string, number>>;
       const x = rows.map(row => row.area_sqft / 1000);
       const y = rows.map(row => row.price / 1000);
-      const foldItems = Array.from({ length: folds }, (_, fold) => {
-        const testIdx = rows.map((_, i) => i).filter(i => i % folds === fold);
-        const trainIdx = rows.map((_, i) => i).filter(i => i % folds !== fold);
-        const model = simpleLinearRegression(trainIdx.map(i => x[i]), trainIdx.map(i => y[i]));
-        const actual = testIdx.map(i => y[i]);
-        const predicted = testIdx.map(i => model.predict(x[i]));
-        return { fold: fold + 1, rmse: Number(rmse(actual, predicted).toFixed(2)), testSize: testIdx.length };
+      const splits = kFoldSplit(x, y, folds);
+      const foldItems = splits.map((split, fold) => {
+        const model = simpleLinearRegression(split.trainX, split.trainY);
+        const predicted = split.testX.map(value => model.predict(value));
+        return { fold: fold + 1, rmse: Number(rmse(split.testY, predicted).toFixed(2)), testSize: split.testX.length };
       });
       return { chart: foldItems, metrics: { 'Mean RMSE': mean(foldItems.map(item => item.rmse)).toFixed(2), Folds: folds, Samples: rows.length }, note: 'Each fold trains on k-1 partitions and evaluates on the held-out partition.' };
     }
@@ -190,8 +190,13 @@ export default function RealAlgorithmMiniLab({ mode }: { mode: Mode }) {
         const baseline = mean(rows.slice(start, Math.max(i, 1)).map(item => item.sales));
         return row.sales - baseline;
       });
-      const sigma = std(residuals) || 1;
-      const chart = rows.map((row, i) => ({ ...row, baseline: row.sales - residuals[i], z: residuals[i] / sigma, anomaly: Math.abs(residuals[i] / sigma) >= threshold ? row.sales : null }));
+      const center = median(residuals);
+      const mad = median(residuals.map(value => Math.abs(value - center)));
+      const sigma = (mad ? 1.4826 * mad : Math.sqrt(mean(residuals.map(value => (value - center) ** 2)))) || 1;
+      const chart = rows.map((row, i) => {
+        const z = (residuals[i] - center) / sigma;
+        return { ...row, baseline: row.sales - residuals[i], z, anomaly: Math.abs(z) >= threshold ? row.sales : null };
+      });
       return { chart, metrics: { Anomalies: chart.filter(row => row.anomaly !== null).length, Threshold: threshold.toFixed(1), 'Residual SD': sigma.toFixed(1) }, note: 'A point is flagged when its rolling-baseline residual exceeds the z-score threshold.' };
     }
 
@@ -202,9 +207,9 @@ export default function RealAlgorithmMiniLab({ mode }: { mode: Mode }) {
       let reward = 0;
       let regret = 0;
       const chart = Array.from({ length: pulls }, (_, t) => {
-        const explore = Math.abs(seededNoise(t + 91)) < epsilon;
-        const arm = explore ? t % trueRates.length : estimates.indexOf(Math.max(...estimates));
-        const win = Math.abs(seededNoise(t + arm * 17)) < trueRates[arm] ? 1 : 0;
+        const explore = seededNoise(t + 91) < epsilon;
+        const arm = explore ? Math.floor(seededNoise(t + 193) * trueRates.length) : estimates.indexOf(Math.max(...estimates));
+        const win = seededNoise(t + arm * 17) < trueRates[arm] ? 1 : 0;
         counts[arm]++;
         reward += win;
         regret += Math.max(...trueRates) - trueRates[arm];

@@ -185,14 +185,14 @@ export default function LogisticRegressionPage() {
 
           {trained && metrics && (
             <MetricsPanel
-              title="Classification Metrics"
+              title="Training Metrics"
               metrics={[
-                { label: 'Accuracy', value: metrics.accuracy, format: 'percent', color: metrics.accuracy > 0.8 ? 'green' : 'default' },
-                { label: 'Precision', value: metrics.precision, format: 'percent' },
-                { label: 'Recall', value: metrics.recall, format: 'percent' },
-                { label: 'F1 Score', value: metrics.f1, format: 'percent', color: 'blue' },
-                { label: 'Log-Loss', value: logLossVal, format: 'fixed4' },
-                { label: 'AUC', value: roc?.auc ?? 0, format: 'fixed4', color: 'green' },
+                { label: 'Train Accuracy', value: metrics.accuracy, format: 'percent', color: metrics.accuracy > 0.8 ? 'green' : 'default' },
+                { label: 'Train Precision', value: metrics.precision, format: 'percent' },
+                { label: 'Train Recall', value: metrics.recall, format: 'percent' },
+                { label: 'Train F1 Score', value: metrics.f1, format: 'percent', color: 'blue' },
+                { label: 'Train Log-Loss', value: logLossVal, format: 'fixed4' },
+                { label: 'Train AUC', value: roc?.auc ?? 0, format: 'fixed4', color: 'green' },
               ]}
             />
           )}
