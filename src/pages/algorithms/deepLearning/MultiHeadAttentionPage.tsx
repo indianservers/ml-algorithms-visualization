@@ -7,7 +7,7 @@ const config = {
   "subtitle": "Interactive browser-only Multi Head Attention module with local datasets, controls, visualizations, metrics, and exports.",
   "category": "Deep Learning",
   "badge": "Intermediate",
-  "explanation": "Multi Head Attention has a dedicated physical lazy-loaded page. It provides algorithm-specific controls, browser-local dataset input, visualization, metrics, prediction or inspection output, limitations, and export actions without Python, a backend, or cloud ML APIs.",
+  "explanation": "Multi Head Attention runs as an interactive browser workbench. It provides algorithm-specific controls, browser-local dataset input, computed visualizations, live metrics, prediction or inspection output, limitations, and export actions without Python, a backend, or cloud ML APIs.",
   "hyperparameters": [
     [
       "Primary control",

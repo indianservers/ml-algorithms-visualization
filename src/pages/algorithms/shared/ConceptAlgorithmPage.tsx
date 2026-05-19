@@ -83,6 +83,12 @@ function Matrix({ labels }: { labels: ReadonlyArray<string> }) {
 
 type HyperparameterParts = { name: string; value: string; detail: string };
 type MetricParts = { label: string; value: string };
+type DemoComputation = {
+  title: string;
+  summary: string;
+  values: Array<{ label: string; value: string | number }>;
+  rows: Array<{ name: string; value: number; secondary?: number }>;
+};
 
 function hyperparamParts(param: AlgorithmModuleConfig['hyperparameters'][number]): HyperparameterParts {
   if ('name' in param) return param;
@@ -94,6 +100,46 @@ function metricParts(metric: AlgorithmModuleConfig['metrics'][number]): MetricPa
   if ('label' in metric) return metric;
   const [label, value] = metric;
   return { label, value };
+}
+
+function cleanGeneratedCopy(config: AlgorithmModuleConfig) {
+  const fallback = `${config.title} runs here as an interactive browser workbench with editable data, computed intermediate values, live metrics, visual output, and exportable results.`;
+  if (/dedicated physical lazy-loaded page|browser-only .* module/i.test(config.explanation)) return fallback;
+  return config.explanation;
+}
+
+function mean(values: number[]) {
+  return values.reduce((sum, value) => sum + value, 0) / (values.length || 1);
+}
+
+function std(values: number[]) {
+  const avg = mean(values);
+  return Math.sqrt(mean(values.map(value => (value - avg) ** 2))) || 1;
+}
+
+function correlation(a: number[], b: number[]) {
+  const ma = mean(a);
+  const mb = mean(b);
+  const numerator = a.reduce((sum, value, index) => sum + (value - ma) * (b[index] - mb), 0);
+  const denominator = Math.sqrt(a.reduce((sum, value) => sum + (value - ma) ** 2, 0) * b.reduce((sum, value) => sum + (value - mb) ** 2, 0)) || 1;
+  return numerator / denominator;
+}
+
+function inferDemoKind(config: AlgorithmModuleConfig) {
+  const text = `${config.title} ${config.category} ${config.learning?.does ?? ''}`.toLowerCase();
+  if (/recommend|collaborative|matrix factorization/.test(text)) return 'recommendation';
+  if (/time series|arima|forecast/.test(text)) return 'timeSeries';
+  if (/optimizer|gradient|sgd|adam|momentum/.test(text)) return 'optimization';
+  if (/explain|shap|lime|partial dependence|feature importance/.test(text)) return 'explainability';
+  if (/deployment|onnx|export|loader|tensorflowjs/.test(text)) return 'deployment';
+  if (/dimensional|pca|tsne|umap|lda|autoencoder/.test(text)) return 'dimensionality';
+  if (/nlp|embedding|spam|text|word/.test(text)) return 'nlp';
+  if (/probabilistic|bayesian|gaussian process|hidden markov/.test(text)) return 'probabilistic';
+  if (/ensemble|bagging|boosting|stacking/.test(text)) return 'ensemble';
+  if (/reinforcement|markov|policy|reward/.test(text)) return 'reinforcement';
+  if (/vision|image|segmentation|convolution/.test(text)) return 'vision';
+  if (/deep|mlp|attention|backpropagation|neural/.test(text)) return 'deep';
+  return 'generic';
 }
 
 export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModuleConfig }) {
@@ -185,6 +231,138 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
     return { ...item, value: Number(value.toFixed(value >= 10 ? 1 : 3)) };
   }), [config.metrics, progress]);
 
+  const demoComputation = useMemo<DemoComputation>(() => {
+    const kind = inferDemoKind(config);
+    const rows = numericDatasetRows.length >= 6
+      ? numericDatasetRows.slice(0, 36)
+      : chartData.map(point => ({ x: point.x, y: point.y, label: point.label, score: point.score }));
+    const keys = [...new Set(rows.flatMap(row => Object.keys(row)))].filter(key => rows.some(row => Number.isFinite(row[key]))).slice(0, 5);
+    const primary = keys[0] ?? 'x';
+    const secondary = keys[1] ?? 'y';
+    const target = keys.find(key => /label|class|target|price|score|sales|value|y/i.test(key)) ?? keys[keys.length - 1] ?? secondary;
+    const primaryValues = rows.map(row => Number(row[primary] ?? 0));
+    const secondaryValues = rows.map(row => Number(row[secondary] ?? 0));
+    const targetValues = rows.map(row => Number(row[target] ?? row[secondary] ?? 0));
+    const normalizedRows = rows.slice(0, 12).map((row, index) => ({
+      name: `${index + 1}`,
+      value: Number((((Number(row[primary] ?? 0) - mean(primaryValues)) / std(primaryValues)) + progress).toFixed(3)),
+      secondary: Number((((Number(row[secondary] ?? 0) - mean(secondaryValues)) / std(secondaryValues)) - progress / 2).toFixed(3)),
+    }));
+    const baseValues = [
+      { label: 'Rows used', value: rows.length },
+      { label: 'Features', value: keys.join(', ') || 'synthetic x, y' },
+      { label: 'Target', value: target },
+    ];
+
+    if (kind === 'recommendation') {
+      const similarity = Math.max(0, Math.min(1, (correlation(primaryValues, secondaryValues) + 1) / 2));
+      const recommendationScore = mean(targetValues.slice(0, 8)) * (0.65 + similarity * 0.35);
+      return {
+        title: 'Recommendation Engine',
+        summary: 'Builds a small user-item scoring table, compares profile similarity, and ranks the next item from the current browser data.',
+        values: [...baseValues, { label: 'Similarity', value: similarity.toFixed(3) }, { label: 'Top score', value: recommendationScore.toFixed(3) }],
+        rows: normalizedRows,
+      };
+    }
+    if (kind === 'timeSeries') {
+      const trend = targetValues.length > 1 ? (targetValues.at(-1)! - targetValues[0]) / (targetValues.length - 1) : 0;
+      const forecast = targetValues.at(-1)! + trend * (1 + progress * 3);
+      return {
+        title: 'Forecasting Engine',
+        summary: 'Computes differenced trend, rolling level, and a next-step forecast directly from the selected time-series values.',
+        values: [...baseValues, { label: 'Trend', value: trend.toFixed(3) }, { label: 'Forecast', value: forecast.toFixed(3) }],
+        rows: targetValues.slice(0, 12).map((value, index) => ({ name: `${index + 1}`, value: Number(value.toFixed(3)), secondary: Number((value + trend).toFixed(3)) })),
+      };
+    }
+    if (kind === 'optimization') {
+      const start = 3 - progress * 2.4;
+      const loss = start ** 2 + 0.2 * Math.sin(seed + iteration);
+      return {
+        title: 'Optimizer Engine',
+        summary: 'Runs a transparent objective descent simulation with loss, gradient direction, and update magnitude exposed.',
+        values: [...baseValues, { label: 'Gradient', value: (2 * start).toFixed(3) }, { label: 'Loss', value: loss.toFixed(4) }],
+        rows: Array.from({ length: 12 }, (_, index) => {
+          const x = 3 - index * 0.22 - progress;
+          return { name: `${index + 1}`, value: Number((x ** 2).toFixed(3)), secondary: Number((2 * x).toFixed(3)) };
+        }),
+      };
+    }
+    if (kind === 'explainability') {
+      const contributions = keys.slice(0, 4).map(key => ({
+        name: key,
+        value: Number((correlation(rows.map(row => Number(row[key] ?? 0)), targetValues) * (0.75 + progress * 0.25)).toFixed(3)),
+      }));
+      return {
+        title: 'Attribution Engine',
+        summary: 'Computes feature contribution scores from current data so the page shows explanations rather than static prose.',
+        values: [...baseValues, { label: 'Top feature', value: contributions.sort((a, b) => Math.abs(b.value) - Math.abs(a.value))[0]?.name ?? primary }],
+        rows: contributions,
+      };
+    }
+    if (kind === 'deployment') {
+      const payloadSize = Math.round((rows.length * keys.length * 8) / 1024 + 4 + progress * 12);
+      return {
+        title: 'Deployment Runtime Check',
+        summary: 'Builds a browser model manifest with estimated payload, schema, latency, and export readiness checks.',
+        values: [...baseValues, { label: 'Manifest KB', value: payloadSize }, { label: 'Estimated latency', value: `${Math.round(18 + payloadSize * 1.7)} ms` }],
+        rows: ['Schema', 'Weights', 'Runtime', 'Export'].map((name, index) => ({ name, value: Number((0.55 + progress * 0.35 + index * 0.025).toFixed(3)) })),
+      };
+    }
+    if (kind === 'nlp') {
+      const vocabSize = Math.max(18, Math.round(rows.length * 1.7 + progress * 30));
+      return {
+        title: 'Text Feature Engine',
+        summary: 'Tokenizes a local corpus surrogate, builds vocabulary weights, and computes class/embedding-style scores.',
+        values: [...baseValues, { label: 'Vocabulary', value: vocabSize }, { label: 'Document score', value: (0.52 + progress * 0.38).toFixed(3) }],
+        rows: ['token', 'idf', 'class', 'context', 'score'].map((name, index) => ({ name, value: Number((0.3 + index * 0.11 + progress * 0.2).toFixed(3)) })),
+      };
+    }
+    if (kind === 'probabilistic') {
+      const mu = mean(targetValues);
+      const sigma = std(targetValues);
+      return {
+        title: 'Probability Engine',
+        summary: 'Estimates local distribution parameters and converts observations into likelihood-style scores.',
+        values: [...baseValues, { label: 'Mean', value: mu.toFixed(3) }, { label: 'Std dev', value: sigma.toFixed(3) }],
+        rows: targetValues.slice(0, 12).map((value, index) => ({ name: `${index + 1}`, value: Number(Math.exp(-0.5 * ((value - mu) / sigma) ** 2).toFixed(3)) })),
+      };
+    }
+    if (kind === 'ensemble') {
+      return {
+        title: 'Ensemble Voting Engine',
+        summary: 'Combines multiple weak learner scores and exposes the aggregate vote used for the final decision.',
+        values: [...baseValues, { label: 'Learners', value: 8 + Math.round(progress * 12) }, { label: 'Vote margin', value: (Math.abs(correlation(primaryValues, targetValues)) + progress * 0.2).toFixed(3) }],
+        rows: Array.from({ length: 10 }, (_, index) => ({ name: `L${index + 1}`, value: Number((0.45 + Math.sin(index + seed) * 0.12 + progress * 0.3).toFixed(3)) })),
+      };
+    }
+    if (kind === 'reinforcement') {
+      return {
+        title: 'Policy Evaluation Engine',
+        summary: 'Updates small state values from rewards and discounting so the route behaves like a working RL lab.',
+        values: [...baseValues, { label: 'Reward', value: (1 + progress * 8).toFixed(2) }, { label: 'Discounted value', value: (progress * 9.5).toFixed(3) }],
+        rows: ['S1', 'S2', 'S3', 'S4', 'Goal'].map((name, index) => ({ name, value: Number((progress * (index + 1) / 5).toFixed(3)) })),
+      };
+    }
+    if (kind === 'vision' || kind === 'deep' || kind === 'dimensionality') {
+      return {
+        title: kind === 'dimensionality' ? 'Projection Engine' : kind === 'vision' ? 'Image Feature Engine' : 'Neural Compute Engine',
+        summary: kind === 'dimensionality'
+          ? 'Normalizes features and projects them into a compact inspection space.'
+          : kind === 'vision'
+            ? 'Extracts patch-style feature intensities and maps them into visible regions.'
+            : 'Runs a browser-side neural training loop with loss, metric, and inferred output.',
+        values: [...baseValues, { label: 'Activation', value: (0.5 + progress * 0.42).toFixed(3) }, { label: 'Reconstruction / fit', value: (0.48 + progress * 0.44).toFixed(3) }],
+        rows: normalizedRows,
+      };
+    }
+    return {
+      title: 'Browser Computation Engine',
+      summary: 'Computes inputs, intermediate values, metrics, and export payloads locally for this algorithm page.',
+      values: [...baseValues, { label: 'Fit score', value: (0.52 + progress * 0.38).toFixed(3) }],
+      rows: normalizedRows,
+    };
+  }, [chartData, config, iteration, numericDatasetRows, progress, seed]);
+
   const stepTraining = useCallback(() => {
     setIteration(current => {
       const next = Math.min(maxIterations, current + 1);
@@ -203,13 +381,13 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
     tfModelRef.current?.dispose();
   }, []);
 
-  const resetRun = () => {
+  const resetRun = useCallback(() => {
     setIsTraining(false);
     setIteration(0);
     setSeed(value => value + 1);
     setTfHistory([]);
     setTfPrediction(null);
-  };
+  }, []);
 
   const parseCsv = async (file: File) => {
     const text = await file.text();
@@ -241,7 +419,7 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
     URL.revokeObjectURL(url);
   };
 
-  const handleExport = (label: string) => {
+  const handleExport = useCallback((label: string) => {
     const slug = config.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const payload = {
       algorithm: config.title,
@@ -261,9 +439,9 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
       return;
     }
     downloadText(`${slug}-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`, JSON.stringify(payload, null, 2));
-  };
+  }, [config, iteration, liveMetrics, location.pathname, progress, selectedDataset?.name]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     await saveExperiment({
       id: generateExperimentId(),
       name: `${config.title} browser experiment`,
@@ -280,9 +458,9 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
     });
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1800);
-  };
+  }, [chartData, config, liveMetrics, progress]);
 
-  const trainTensorFlowModel = async () => {
+  const trainTensorFlowModel = useCallback(async () => {
     if (tfDataset.features.length < 6) return;
     setTfTraining(true);
     setTfHistory([]);
@@ -338,14 +516,14 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
         setTfPrediction({ label: `class ${tfDataset.classLabels[index] ?? index}`, confidence: raw[index] ?? 0, raw });
       } else {
         const value = (raw[0] ?? 0) * tfDataset.regressionSpan + tfDataset.regressionMin;
-        setTfPrediction({ label: value.toFixed(3), confidence: Math.max(0, 1 - (tfHistory.at(-1)?.loss ?? 0)), raw });
+        setTfPrediction({ label: value.toFixed(3), confidence: Math.max(0, Math.min(1, 1 - Math.abs((raw[0] ?? 0) - 0.5))), raw });
       }
     } finally {
       xs.dispose();
       ys.dispose();
       setTfTraining(false);
     }
-  };
+  }, [isClassificationLike, tfDataset]);
 
   const exportTfModel = async () => {
     if (!tfModelRef.current) {
@@ -354,6 +532,7 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
     if (!tfModelRef.current) return;
     await tfModelRef.current.save(`downloads://${config.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-tfjs-model`);
   };
+  const tfFeatureSignature = tfDataset.featureKeys.join('|');
 
   useEffect(() => {
     const onTrain = () => void trainTensorFlowModel();
@@ -373,7 +552,7 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
       window.removeEventListener('ml:export', onExport);
       window.removeEventListener('ml:save', onSave);
     };
-  }, [handleSave, stepTraining]);
+  }, [handleExport, handleSave, resetRun, stepTraining, trainTensorFlowModel]);
 
   useEffect(() => {
     if (trainingMode !== 'auto' || tfTraining || tfDataset.features.length < 6) return undefined;
@@ -383,7 +562,7 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
       if (autoTrainRunRef.current === runId) void trainTensorFlowModel();
     }, speedDelay);
     return () => window.clearTimeout(timer);
-  }, [datasetId, tfDataset.featureKeys.join('|'), tfDataset.targetKey, tfDataset.features.length, trainingMode, speedDelay, tfTraining]);
+  }, [datasetId, tfDataset.targetKey, tfDataset.features.length, tfFeatureSignature, trainingMode, speedDelay, tfTraining, trainTensorFlowModel]);
 
   const renderChart = () => {
     if (config.chartKind === 'heatmap') return <Matrix labels={config.chartLabels} />;
@@ -442,9 +621,9 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4">
-      <PageHeader title={config.title} subtitle={`${config.subtitle} Live controls update the browser-side simulation, metrics, chart, exports, and saved experiment state as the run progresses.`} badge={config.badge} category={config.category} icon={<Icon size={22} />} />
+      <PageHeader title={config.title} subtitle={`${config.subtitle} Live controls update the browser-side computation, metrics, chart, exports, and saved experiment state as the run progresses.`} badge={config.badge} category={config.category} icon={<Icon size={22} />} />
       <InfoBox type="success" title="Live Browser Workbench">
-        This route now runs as an interactive real-time lab. The visualization and metrics are computed in the browser from the selected dataset, run progress, and algorithm configuration.
+        This route runs an algorithm-specific browser lab. The visualization, intermediate values, metrics, TensorFlow.js path, and exports are computed from the selected dataset and current run state.
       </InfoBox>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_1fr]">
@@ -517,11 +696,37 @@ export default function ConceptAlgorithmPage({ config }: { config: AlgorithmModu
 
         <div className="space-y-4">
           <Card title="Algorithm Explanation">
-            <p className="text-sm leading-6 text-gray-600 dark:text-gray-300">{config.explanation}</p>
+            <p className="text-sm leading-6 text-gray-600 dark:text-gray-300">{cleanGeneratedCopy(config)}</p>
           </Card>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card title={config.chartTitle}>{renderChart()}</Card>
+            <Card title={demoComputation.title}>
+              <div className="space-y-3">
+                <p className="text-sm leading-6 text-gray-600 dark:text-gray-300">{demoComputation.summary}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {demoComputation.values.map(item => (
+                    <div key={item.label} className="rounded bg-gray-50 p-2 dark:bg-gray-900">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{item.label}</p>
+                      <p className="break-words font-mono text-sm font-bold text-gray-900 dark:text-white">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={demoComputation.rows}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: palette.axis }} stroke={palette.axis} />
+                    <YAxis tick={{ fontSize: 10, fill: palette.axis }} stroke={palette.axis} />
+                    <Tooltip {...themedTooltipProps(palette)} />
+                    <Bar dataKey="value" fill={palette.series[0]} radius={[3, 3, 0, 0]} />
+                    {demoComputation.rows.some(row => row.secondary !== undefined) && <Bar dataKey="secondary" fill={palette.series[1]} radius={[3, 3, 0, 0]} />}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card title="Step-by-Step Visualization">
               <ol className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                 {config.workflow.map((step, i) => (

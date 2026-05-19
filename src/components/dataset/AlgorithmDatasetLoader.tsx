@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart3, Check, Copy, Database, Download, Grid3X3, LineChart, Table2, Upload } from 'lucide-react';
+import { AlertTriangle, BarChart3, Check, Copy, Database, Download, Grid3X3, Info, LineChart, ShieldCheck, Table2, Upload } from 'lucide-react';
 import {
   getAlgorithmDatasetSuggestions,
   loadAlgorithmDataset,
 } from '../../data/algorithmDatasets';
 import type { LoadedAlgorithmDataset } from '../../data/algorithmDatasets';
+import { checkDatasetCompatibility } from '../../lib/preprocessing/datasetCompatibility';
 import { loadDatasets, type SavedDataset } from '../../stores/experimentStore';
 import { Card } from '../common/Card';
 
@@ -62,6 +63,10 @@ export function AlgorithmDatasetLoader({ route, category }: { route: string; cat
     if (selectedSaved) return savedToLoadedDataset(selectedSaved);
     return selected ? loadAlgorithmDataset(selected) : null;
   }, [selected, selectedSaved]);
+  const compatibility = useMemo(
+    () => loaded ? checkDatasetCompatibility(loaded, route, category) : null,
+    [category, loaded, route],
+  );
   const [activeId, setActiveId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const filteredSavedDatasets = savedDatasets.filter(dataset => {
@@ -93,6 +98,10 @@ export function AlgorithmDatasetLoader({ route, category }: { route: string; cat
   }
 
   const previewRows = loaded.data.slice(0, 4);
+  const compatibilityItems = compatibility ? [
+    ...compatibility.errors.map(message => ({ message, tone: 'error' as const })),
+    ...compatibility.warnings.map(message => ({ message, tone: 'warning' as const })),
+  ] : [];
   const handleLoad = () => {
     persistLoadedDataset(route, loaded);
     setActiveId(loaded.id);
@@ -174,6 +183,45 @@ export function AlgorithmDatasetLoader({ route, category }: { route: string; cat
             </optgroup>
           </select>
           <p className="text-xs text-gray-500 dark:text-gray-400">{loaded.description}</p>
+          {compatibility && (
+            <div className={`rounded-lg border p-3 text-xs ${
+              compatibility.errors.length > 0
+                ? 'border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/30'
+                : compatibility.warnings.length > 0
+                  ? 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30'
+                  : 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30'
+            }`}>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className={`inline-flex items-center gap-1 font-bold uppercase tracking-wide ${
+                  compatibility.errors.length > 0
+                    ? 'text-rose-700 dark:text-rose-200'
+                    : compatibility.warnings.length > 0
+                      ? 'text-amber-800 dark:text-amber-200'
+                      : 'text-emerald-700 dark:text-emerald-200'
+                }`}>
+                  {compatibility.errors.length > 0 ? <AlertTriangle size={13} /> : compatibility.warnings.length > 0 ? <Info size={13} /> : <ShieldCheck size={13} />}
+                  Dataset fit
+                </span>
+                <span className="rounded bg-white/70 px-2 py-0.5 font-mono text-[11px] text-gray-600 dark:bg-gray-900/60 dark:text-gray-300">
+                  {compatibility.expectedTask}
+                </span>
+              </div>
+              {compatibilityItems.length > 0 ? (
+                <ul className="space-y-1.5">
+                  {compatibilityItems.slice(0, 4).map(item => (
+                    <li key={item.message} className={item.tone === 'error' ? 'text-rose-700 dark:text-rose-200' : 'text-amber-800 dark:text-amber-200'}>
+                      {item.message}
+                    </li>
+                  ))}
+                  {compatibilityItems.length > 4 && (
+                    <li className="text-gray-500 dark:text-gray-400">+{compatibilityItems.length - 4} more compatibility note(s).</li>
+                  )}
+                </ul>
+              ) : (
+                <p className="text-emerald-700 dark:text-emerald-200">{compatibility.notes[0]}</p>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
             <div className="rounded bg-gray-50 p-2 dark:bg-gray-900">
               <p className="text-gray-500">Rows</p>

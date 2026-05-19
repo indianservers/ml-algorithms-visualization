@@ -7,7 +7,7 @@ const config = {
   "subtitle": "Interactive browser-only Gaussian Process Regression module with local datasets, controls, visualizations, metrics, and exports.",
   "category": "Probabilistic",
   "badge": "Intermediate",
-  "explanation": "Gaussian Process Regression has a dedicated physical lazy-loaded page. It provides algorithm-specific controls, browser-local dataset input, visualization, metrics, prediction or inspection output, limitations, and export actions without Python, a backend, or cloud ML APIs.",
+  "explanation": "Gaussian Process Regression runs as an interactive browser workbench. It provides algorithm-specific controls, browser-local dataset input, computed visualizations, live metrics, prediction or inspection output, limitations, and export actions without Python, a backend, or cloud ML APIs.",
   "hyperparameters": [
     [
       "Primary control",

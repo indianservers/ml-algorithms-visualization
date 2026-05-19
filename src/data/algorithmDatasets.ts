@@ -39,6 +39,7 @@ export interface LoadedAlgorithmDataset {
   id: string;
   name: string;
   description: string;
+  type?: Dataset['type'] | 'synthetic';
   columns: string[];
   data: Record<string, unknown>[];
   target?: string;
@@ -326,12 +327,21 @@ function syntheticRows(suggestion: AlgorithmDatasetSuggestion): Record<string, u
   return [];
 }
 
+function syntheticDatasetType(id: string): LoadedAlgorithmDataset['type'] {
+  if (id === 'synthetic-linear') return 'regression';
+  if (id === 'synthetic-blobs' || id === 'synthetic-moons' || id === 'synthetic-circles' || id === 'synthetic-image-grid') return 'classification';
+  if (id === 'synthetic-sequence') return 'timeSeries';
+  if (id === 'synthetic-bandit' || id === 'synthetic-grid-world') return 'synthetic';
+  return 'synthetic';
+}
+
 export function loadAlgorithmDataset(suggestion: AlgorithmDatasetSuggestion): LoadedAlgorithmDataset {
   const data = suggestion.dataset?.data ?? syntheticRows(suggestion);
   return {
     id: suggestion.id,
     name: suggestion.name,
     description: suggestion.description,
+    type: suggestion.dataset?.type ?? syntheticDatasetType(suggestion.id),
     columns: suggestion.columns,
     data,
     target: suggestion.target,
