@@ -21,6 +21,7 @@ type MatrixCell = { row: number; col: number } | null;
 type FlowStepId = 'embedding' | 'qkv' | 'attention' | 'mlp' | 'output';
 type Speed = 'Slow' | 'Normal' | 'Fast';
 type VisualMode = 'transformer' | 'tree' | 'graph';
+type LearningMode = 'teaching' | 'learning' | 'practice';
 type VisibleLayer = 'signal' | 'qkv' | 'attention' | 'mlp' | 'output';
 type VisibleLayerState = Record<VisibleLayer, boolean>;
 
@@ -241,6 +242,48 @@ const beginnerGuides: Record<VisualMode, { plain: string; readOrder: string[]; t
     readOrder: ['Click a circle to inspect a model part.', 'Click a line to inspect a transition.', 'Thicker lines mean stronger flow.', 'A loop means information can feed back into memory.'],
     tryThis: 'Click the feedback edge from Decision to Memory and read the selected edge card.',
   },
+};
+
+const learningModes: Array<{ id: LearningMode; label: string; summary: string }> = [
+  { id: 'teaching', label: 'Teaching Mode', summary: 'Full step-by-step walkthrough with explanations and usage guidance.' },
+  { id: 'learning', label: 'Learning Mode', summary: 'Short mental model, what to notice, and quick checks.' },
+  { id: 'practice', label: 'Practice Mode', summary: 'Try tasks first, then reveal hints only when needed.' },
+];
+
+const learningModelCards: Record<VisualMode, Array<{ label: string; detail: string }>> = {
+  transformer: [
+    { label: 'Input', detail: 'Words become numbers so the model can compare them.' },
+    { label: 'Attention', detail: 'Each word chooses which other words give useful context.' },
+    { label: 'Output', detail: 'The model turns the final signal into next-word probabilities.' },
+  ],
+  tree: [
+    { label: 'Question', detail: 'Each split asks one yes/no rule about the data.' },
+    { label: 'Route', detail: 'Answers move the example through the highlighted path.' },
+    { label: 'Prediction', detail: 'The leaf at the end is the model decision.' },
+  ],
+  graph: [
+    { label: 'Node', detail: 'A circle is a state, memory, feature, score, or decision.' },
+    { label: 'Edge', detail: 'A line is information moving from one model part to another.' },
+    { label: 'Loop', detail: 'Feedback sends decisions back into memory for future steps.' },
+  ],
+};
+
+const practiceTasks: Record<VisualMode, Array<{ task: string; hint: string; answer: string }>> = {
+  transformer: [
+    { task: 'Lock the token "visualization".', hint: 'Click the token text on the left side of the transformer canvas.', answer: 'The selected token chip should read visualization.' },
+    { task: 'Hide the output layer and focus only on attention.', hint: 'Use Reduce visual noise, then toggle Output off.', answer: 'The probability bars disappear, leaving the attention flow easier to inspect.' },
+    { task: 'Find which word the selected token attends to most.', hint: 'Read the What changed? card above the canvas.', answer: 'The strongest attention word is shown in violet in the What changed? card.' },
+  ],
+  tree: [
+    { task: 'Click a leaf and trace the prediction route.', hint: 'Leaves are the bottom boxes named Class A, Class B, or Class C.', answer: 'The blue highlighted route shows every question the model used.' },
+    { task: 'Explain why a leaf is a prediction.', hint: 'Read the Selected question or answer panel.', answer: 'A leaf summarizes rows that reached that endpoint, so it becomes the class prediction.' },
+    { task: 'Compare two leaves.', hint: 'Click different bottom boxes and watch the path list change.', answer: 'Different leaves can share early questions but split apart near the end.' },
+  ],
+  graph: [
+    { task: 'Click an edge and read its strength.', hint: 'Click a curved line between two circles.', answer: 'The Selected edge card shows its transition name and strength percentage.' },
+    { task: 'Find the feedback loop.', hint: 'Look for a line that goes back to Memory.', answer: 'Decision to Memory is the feedback edge.' },
+    { task: 'Explain what Score does.', hint: 'Click the Score circle.', answer: 'Score combines features and memory into values used for the decision.' },
+  ],
 };
 
 function getAttentionValue(rowIndex: number, colIndex: number, head: number, block: number) {
@@ -810,6 +853,9 @@ export default function ArchitectureFlowLabPage() {
   const [activeStepIndex, setActiveStepIndex] = useState(initialState.activeStepIndex);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<Speed>(initialState.speed);
+  const [learningMode, setLearningMode] = useState<LearningMode>('teaching');
+  const [showPracticeHints, setShowPracticeHints] = useState(false);
+  const [completedPractice, setCompletedPractice] = useState<number[]>([]);
   const [visibleLayers, setVisibleLayers] = useState<VisibleLayerState>(defaultVisibleLayers);
   const [savedPresets, setSavedPresets] = useState<VisualPreset[]>(loadPresets);
   const [notice, setNotice] = useState('');
@@ -826,12 +872,14 @@ export default function ArchitectureFlowLabPage() {
     return { word: tokens[bestIndex].text, value: row[bestIndex] };
   }, [block, head, selectedTokenIndex]);
   const beginnerGuide = beginnerGuides[visualMode];
+  const modeLabel = learningModes.find(mode => mode.id === learningMode)?.label ?? 'Teaching Mode';
+  const currentPracticeTasks = practiceTasks[visualMode];
 
   const stats = [
     { label: 'Canvas mode', value: visualModes.find(mode => mode.id === visualMode)?.label ?? 'Transformer' },
-    { label: 'Modes', value: visualModes.length },
+    { label: 'Learning mode', value: modeLabel },
     { label: visualMode === 'transformer' ? 'Attention head' : 'Selected node', value: visualMode === 'transformer' ? `${head} / 12` : visualMode === 'tree' ? activeTreeNode.label : activeGraphNode.label },
-    { label: 'Phase', value: '8 / 8' },
+    { label: 'Phase', value: '9 / 9' },
   ];
 
   useEffect(() => {
@@ -956,12 +1004,27 @@ export default function ArchitectureFlowLabPage() {
   const toggleLayer = (layer: VisibleLayer) => {
     setVisibleLayers(current => ({ ...current, [layer]: !current[layer] }));
   };
+  const updateLearningMode = (mode: LearningMode) => {
+    setLearningMode(mode);
+    setShowPracticeHints(false);
+    setCompletedPractice([]);
+    setPlaying(mode === 'teaching' && visualMode === 'transformer');
+    if (mode === 'practice') setNotice('Practice mode: try the tasks before opening hints.');
+  };
+  const updateVisualMode = (mode: VisualMode) => {
+    setVisualMode(mode);
+    setCompletedPractice([]);
+    setShowPracticeHints(false);
+  };
+  const togglePracticeTask = (index: number) => {
+    setCompletedPractice(current => current.includes(index) ? current.filter(item => item !== index) : [...current, index]);
+  };
 
   return (
     <div className="mx-auto max-w-7xl p-4 sm:p-6">
       <PageHeader
         title="Architecture Flow Lab"
-        subtitle="A beginner-friendly visual lab for model graphs, transformer blocks, and decision paths. Phase 8 makes the diagrams easier to read and explain."
+        subtitle="A beginner-friendly visual lab for model graphs, transformer blocks, and decision paths. Phase 9 adds Teaching, Learning, and Practice modes."
         badge="Educational"
         category="Lab"
         icon={<Network size={22} />}
@@ -983,7 +1046,7 @@ export default function ArchitectureFlowLabPage() {
           {visualModes.map(mode => (
             <button
               key={mode.id}
-              onClick={() => setVisualMode(mode.id)}
+              onClick={() => updateVisualMode(mode.id)}
               className={`rounded-lg border p-4 text-left transition-colors ${
                 visualMode === mode.id
                   ? 'border-blue-500 bg-blue-50 text-blue-800 shadow-sm dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-100'
@@ -996,18 +1059,52 @@ export default function ArchitectureFlowLabPage() {
           ))}
         </div>
 
+        <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">Learning mode</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">Choose how much help the lab should show.</p>
+            </div>
+            {learningMode === 'practice' && (
+              <button
+                onClick={() => setShowPracticeHints(value => !value)}
+                className="inline-flex min-h-9 items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-800 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+              >
+                <Eye size={13} /> {showPracticeHints ? 'Hide hints' : 'Show hints'}
+              </button>
+            )}
+          </div>
+          <div className="grid gap-2 md:grid-cols-3">
+            {learningModes.map(mode => (
+              <button
+                key={mode.id}
+                onClick={() => updateLearningMode(mode.id)}
+                className={`min-h-24 rounded-lg border p-3 text-left transition-colors ${
+                  learningMode === mode.id
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-800 shadow-sm dark:border-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-100'
+                    : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-indigo-200 hover:bg-indigo-50/60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-800'
+                }`}
+              >
+                <span className="block text-sm font-bold">{mode.label}</span>
+                <span className="mt-1 block text-xs leading-5 opacity-80">{mode.summary}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {learningMode !== 'practice' && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/20">
           <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr_0.9fr]">
             <div>
               <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-blue-700 dark:text-blue-300">
-                <BookOpen size={14} /> Read this first
+                <BookOpen size={14} /> {learningMode === 'teaching' ? 'Teaching walkthrough' : 'Learning model'}
               </p>
               <p className="mt-2 text-sm leading-6 text-blue-950 dark:text-blue-100">{beginnerGuide.plain}</p>
             </div>
             <div className="rounded-lg bg-white p-3 dark:bg-gray-950">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">How to read it</p>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">{learningMode === 'teaching' ? 'How to use it' : 'How the model thinks'}</p>
               <div className="grid gap-2 sm:grid-cols-2">
-                {beginnerGuide.readOrder.map((item, index) => (
+                {(learningMode === 'teaching' ? beginnerGuide.readOrder : learningModelCards[visualMode].map(card => `${card.label}: ${card.detail}`)).map((item, index) => (
                   <div key={item} className="flex gap-2 text-xs leading-5 text-gray-600 dark:text-gray-300">
                     <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-blue-600 font-bold text-white">{index + 1}</span>
                     <span>{item}</span>
@@ -1021,7 +1118,46 @@ export default function ArchitectureFlowLabPage() {
             </div>
           </div>
         </div>
+        )}
 
+        {learningMode === 'practice' && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                  <Target size={14} /> Practice checklist
+                </p>
+                <p className="mt-1 text-sm text-amber-900 dark:text-amber-100">Try the task on the diagram, then mark it done. Open hints only if you get stuck.</p>
+              </div>
+              <p className="rounded-full bg-white px-3 py-1 text-xs font-bold text-amber-800 dark:bg-gray-950 dark:text-amber-200">
+                {completedPractice.length} / {currentPracticeTasks.length} done
+              </p>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-3">
+              {currentPracticeTasks.map((task, index) => {
+                const done = completedPractice.includes(index);
+                return (
+                  <button
+                    key={task.task}
+                    onClick={() => togglePracticeTask(index)}
+                    className={`rounded-lg border p-3 text-left transition-colors ${
+                      done
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100'
+                        : 'border-amber-200 bg-white text-gray-800 hover:bg-amber-100 dark:border-amber-900 dark:bg-gray-950 dark:text-gray-100 dark:hover:bg-amber-950/40'
+                    }`}
+                  >
+                    <span className="block text-xs font-bold uppercase tracking-wide">{done ? 'Done' : `Task ${index + 1}`}</span>
+                    <span className="mt-1 block text-sm font-semibold">{task.task}</span>
+                    {showPracticeHints && <span className="mt-2 block text-xs leading-5 text-gray-500 dark:text-gray-400">Hint: {task.hint}</span>}
+                    {done && <span className="mt-2 block text-xs leading-5 text-emerald-700 dark:text-emerald-300">Check: {task.answer}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {learningMode === 'teaching' && (
         <div className="grid gap-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900 lg:grid-cols-[220px_1fr]">
           <div className="flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-lg bg-violet-600 text-white">
@@ -1043,6 +1179,7 @@ export default function ArchitectureFlowLabPage() {
             ))}
           </div>
         </div>
+        )}
 
         <div className="grid gap-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900 lg:grid-cols-[1fr_auto]">
           <div className="flex flex-wrap items-center gap-2">
@@ -1234,7 +1371,9 @@ export default function ArchitectureFlowLabPage() {
               <div className="rounded-lg border border-indigo-200 bg-white p-3 dark:border-indigo-800 dark:bg-gray-950">
                 <p className="text-xs font-bold uppercase tracking-wide text-indigo-500 dark:text-indigo-300">Step {activeStepIndex + 1} of {flowSteps.length}</p>
                 <h3 className="mt-1 text-lg font-bold text-gray-900 dark:text-white">{activeStep.label}: {activeStep.summary}</h3>
-                <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">{activeStep.detail}</p>
+                {learningMode === 'practice'
+                  ? <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">Try to explain this step yourself first. Turn on hints in the practice checklist if you need a nudge.</p>
+                  : <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">{activeStep.detail}</p>}
               </div>
             </div>
             <TransformerFlowCanvas
@@ -1260,7 +1399,9 @@ export default function ArchitectureFlowLabPage() {
                   <p className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">Selected question or answer</p>
                   <h3 className="mt-2 text-xl font-bold text-gray-900 dark:text-white">{activeTreeNode.label}</h3>
                   <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">{activeTreeNode.kind}</p>
-                  <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">{activeTreeNode.detail}</p>
+                  {learningMode === 'practice'
+                    ? <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">Use the highlighted route to explain what this node means before opening hints.</p>
+                    : <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">{activeTreeNode.detail}</p>}
                   <div className="mt-4 rounded-lg border border-blue-200 bg-white p-3 dark:border-blue-900 dark:bg-gray-950">
                     <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-blue-600 dark:text-blue-300">
                       <Route size={13} /> How the model got here
@@ -1286,7 +1427,9 @@ export default function ArchitectureFlowLabPage() {
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
                   <p className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">Selected model part</p>
                   <h3 className="mt-2 text-xl font-bold text-gray-900 dark:text-white">{activeGraphNode.label}</h3>
-                  <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">{activeGraphNode.detail}</p>
+                  {learningMode === 'practice'
+                    ? <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">Describe the selected part in your own words, then use the checklist to confirm.</p>
+                    : <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">{activeGraphNode.detail}</p>}
                   {activeGraphEdge && (
                     <div className="mt-4 rounded-lg border border-violet-200 bg-white p-3 dark:border-violet-900 dark:bg-gray-950">
                       <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-violet-600 dark:text-violet-300">
@@ -1310,13 +1453,13 @@ export default function ArchitectureFlowLabPage() {
         </Card>
 
         <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <Card title="Phase 8 Scope" icon={<GitBranch size={16} />}>
+          <Card title="Phase 9 Scope" icon={<GitBranch size={16} />}>
             <div className="grid gap-3 text-sm text-gray-600 dark:text-gray-300 sm:grid-cols-2">
               {[
-                'Beginner-first explanation panel',
-                'Mode-specific reading order',
-                'Plain-English interaction prompts',
-                'Friendlier labels for learners',
+                'Teaching Mode with guided walkthroughs',
+                'Learning Mode with compact mental models',
+                'Practice Mode with hidden hints and checks',
+                'Mode-aware explanation visibility',
               ].map(item => (
                 <div key={item} className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
                   {item}

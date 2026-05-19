@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "node scripts/generate-sitemap.mjs && node scripts/audit-pages.mjs",
+    "prebuild": "node scripts/generate-sitemap.mjs && node scripts/audit-pages.mjs && node scripts/audit-navigation.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "generate:sitemap": "node scripts/generate-sitemap.mjs",
     "audit:pages": "node scripts/audit-pages.mjs",
+    "audit:navigation": "node scripts/audit-navigation.mjs",
     "smoke:routes": "node scripts/smoke-routes.mjs",
     "test:core": "node scripts/unit-core.cjs",
     "test:responsive": "playwright test tests/responsive.spec.ts --reporter=line"

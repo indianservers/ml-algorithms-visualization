@@ -225,13 +225,13 @@ export const navigationData: NavCategory[] = [
     category: 'Lab',
     icon: 'FlaskConical',
     items: [
+      { label: 'Architecture Flow Lab', route: '/ml/lab/architecture-flow', badge: 'Educational' },
       { label: 'Algorithm Comparison Lab', route: '/ml/lab/algorithm-comparison', badge: 'Advanced' },
       { label: 'Hyperparameter Tuning Lab', route: '/ml/lab/hyperparameter-tuning', badge: 'Advanced' },
       { label: 'AutoML Lab', route: '/ml/lab/automl-concept', badge: 'Advanced' },
       { label: 'Saved Experiments', route: '/ml/lab/saved-experiments', badge: 'Intermediate' },
       { label: 'Dataset Manager', route: '/ml/lab/dataset-manager', badge: 'Beginner' },
       { label: 'Report Builder', route: '/ml/lab/report-builder', badge: 'Intermediate' },
-      { label: 'Architecture Flow Lab', route: '/ml/lab/architecture-flow', badge: 'Educational' },
     ],
   },
 ];

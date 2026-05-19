@@ -50,6 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigat
     .filter(cat => cat.items.some(item => location.pathname.startsWith(item.route)))
     .map(cat => cat.category), [location.pathname]);
   const { expandedCategories, toggleCategory, expandCategory } = useSidebarCategoryState(initialExpandedCategories);
+  const badgeOptions = useMemo(() => Array.from(new Set(navigationData.flatMap(cat => cat.items.map(item => item.badge)))), []);
 
   const allAlgorithms = useMemo(() => getAllAlgorithms(), []);
   const favoriteItems = favoriteRoutes
@@ -95,7 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigat
         items: cat.items.filter(item =>
           statusMatch(item.route) &&
           badgeMatch(item.badge) &&
-          (!search.trim() || item.label.toLowerCase().includes(q) || item.badge.toLowerCase().includes(q) || getImplementationStatus(item.route).toLowerCase().includes(q))
+          (!search.trim() || item.label.toLowerCase().includes(q) || cat.category.toLowerCase().includes(q) || item.badge.toLowerCase().includes(q) || getImplementationStatus(item.route).toLowerCase().includes(q))
         ),
       }))
       .filter(cat => cat.items.length > 0);
@@ -171,11 +172,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onNavigat
           </select>
           <select value={badgeFilter} onChange={event => setBadgeFilter(event.target.value)} className="min-h-10 rounded-md border border-gray-200 bg-gray-50 px-2 py-2 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
             <option>All</option>
-            <option>Beginner</option>
-            <option>Intermediate</option>
-            <option>Advanced</option>
-            <option>Browser Trainable</option>
-            <option>Browser Inference</option>
+            {badgeOptions.map(option => <option key={option}>{option}</option>)}
           </select>
         </div>
         <div className="mt-2 grid grid-cols-3 gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800">

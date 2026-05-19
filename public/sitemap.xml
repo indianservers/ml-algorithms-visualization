@@ -649,6 +649,12 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://www.AimerSociety.com/ml/lab/architecture-flow</loc>
+    <lastmod>2026-05-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://www.AimerSociety.com/ml/lab/algorithm-comparison</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>monthly</changefreq>
@@ -680,12 +686,6 @@
   </url>
   <url>
     <loc>https://www.AimerSociety.com/ml/lab/report-builder</loc>
-    <lastmod>2026-05-19</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://www.AimerSociety.com/ml/lab/architecture-flow</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
