@@ -11,6 +11,7 @@ type AudioClass = { id: string; name: string; color: string };
 type AudioExample = { id: string; classId: string; feature: number[]; frames: number[][]; createdAt: number };
 type Prediction = AudioClass & { probability: number };
 type EpochPoint = { epoch: number; loss: number; accuracy: number };
+type CalibrationSample = { classId: string; confidence: number };
 
 const COLORS = ['#2563eb', '#059669', '#dc2626', '#9333ea', '#ea580c', '#0891b2', '#be123c', '#4f46e5'];
 const MEL_BANDS = 40;
@@ -101,9 +102,12 @@ export default function AudioClassificationPage() {
   const [recordingClass, setRecordingClass] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [training, setTraining] = useState(false);
+  const [modelReady, setModelReady] = useState(false);
   const [epochs, setEpochs] = useState(35);
   const [batchSize, setBatchSize] = useState(16);
   const [threshold, setThreshold] = useState(0.7);
+  const [calibrationSamples, setCalibrationSamples] = useState<CalibrationSample[]>([]);
+  const [calibrating, setCalibrating] = useState(false);
   const [epochData, setEpochData] = useState<EpochPoint[]>([]);
   const [status, setStatus] = useState('Start the microphone, record at least 8 one-second clips per class, then train.');
 
@@ -124,6 +128,22 @@ export default function AudioClassificationPage() {
   const readyToTrain = classes.length >= 2 && classes.every(cls => (counts[cls.id] ?? 0) >= MIN_SAMPLES_PER_CLASS) && !training;
   const topPrediction = predictions[0];
   const displayLabel = topPrediction && topPrediction.probability >= threshold ? topPrediction.name : 'Uncertain';
+  const rejectionRate = calibrationSamples.length
+    ? calibrationSamples.filter(sample => sample.confidence < threshold).length / calibrationSamples.length
+    : topPrediction ? (topPrediction.probability >= threshold ? 0 : 1) : 0;
+  const calibrationHistogram = useMemo(() => Array.from({ length: 10 }, (_, index) => {
+    const low = index / 10;
+    const high = (index + 1) / 10;
+    return {
+      bin: `${Math.round(low * 100)}-${Math.round(high * 100)}%`,
+      count: calibrationSamples.filter(sample => sample.confidence >= low && (index === 9 ? sample.confidence <= high : sample.confidence < high)).length,
+    };
+  }), [calibrationSamples]);
+  const suggestedThreshold = useMemo(() => {
+    if (!calibrationSamples.length) return threshold;
+    const sorted = [...calibrationSamples].map(sample => sample.confidence).sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length * 0.25)] ?? threshold;
+  }, [calibrationSamples, threshold]);
 
   const readMelBands = useCallback(() => {
     const analyser = analyserRef.current;
@@ -152,6 +172,43 @@ export default function AudioClassificationPage() {
         .sort((a, b) => b.probability - a.probability)
     );
   }, []);
+
+  const readAudioPrediction = useCallback(async (bands: number[]) => {
+    const model = modelRef.current;
+    if (!model) return null;
+    const input = tf.tensor2d(bands, [1, MEL_BANDS]);
+    const output = model.predict(input) as tf.Tensor;
+    const values = Array.from(await output.data());
+    input.dispose();
+    output.dispose();
+    return classesRef.current
+      .map((cls, index) => ({ ...cls, probability: values[index] ?? 0 }))
+      .sort((a, b) => b.probability - a.probability);
+  }, []);
+
+  const calibrateThreshold = async () => {
+    if (!modelRef.current || !running) {
+      setStatus('Start the microphone and train a model before calibration.');
+      return;
+    }
+    setCalibrating(true);
+    setStatus('Calibrating confidence threshold from 30 live audio windows...');
+    const samples: CalibrationSample[] = [];
+    for (let index = 0; index < 30; index++) {
+      const bands = readMelBands();
+      if (bands) {
+        const next = await readAudioPrediction(bands);
+        const top = next?.[0];
+        if (next) setPredictions(next);
+        if (top) samples.push({ classId: top.id, confidence: top.probability });
+      }
+      await new Promise(resolve => window.setTimeout(resolve, 120));
+    }
+    setCalibrationSamples(samples);
+    setCalibrating(false);
+    const sorted = [...samples].map(sample => sample.confidence).sort((a, b) => a - b);
+    setStatus(`Calibration complete. Suggested threshold: ${Math.round(((sorted[Math.floor(sorted.length * 0.25)] ?? threshold) * 100))}%.`);
+  };
 
   const startInferenceLoop = useCallback(() => {
     if (inferenceRef.current) window.clearInterval(inferenceRef.current);
@@ -223,6 +280,8 @@ export default function AudioClassificationPage() {
     }
     setTraining(true);
     setEpochData([]);
+    setCalibrationSamples([]);
+    setModelReady(false);
     modelRef.current?.dispose();
     const model = buildAudioModel(classes.length);
     const classIndex = new Map(classes.map((cls, index) => [cls.id, index]));
@@ -254,6 +313,7 @@ export default function AudioClassificationPage() {
     xs.dispose();
     ys.dispose();
     modelRef.current = model;
+    setModelReady(true);
     await saveModelMetadata({
       id: generateExperimentId(),
       name: `Audio classifier - ${classes.length} classes`,
@@ -293,9 +353,11 @@ export default function AudioClassificationPage() {
   const reset = () => {
     modelRef.current?.dispose();
     modelRef.current = null;
+    setModelReady(false);
     setExamples([]);
     setPredictions([]);
     setEpochData([]);
+    setCalibrationSamples([]);
     setStatus('Dataset and trained model cleared.');
   };
 
@@ -417,6 +479,41 @@ export default function AudioClassificationPage() {
               Confidence threshold: {(threshold * 100).toFixed(0)}%
               <input type="range" min={0.5} max={0.95} step={0.01} value={threshold} onChange={event => setThreshold(Number(event.target.value))} className="mt-2 w-full accent-purple-600" />
             </label>
+            <div className="mt-4 rounded-lg border border-purple-100 bg-purple-50 p-3 text-sm dark:border-purple-900/60 dark:bg-purple-950/20">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-bold text-purple-900 dark:text-purple-100">Tune confidence gate</p>
+                  <p className="text-xs text-purple-700 dark:text-purple-200">
+                    Current rejection rate: <b>{(rejectionRate * 100).toFixed(0)}%</b> of windows
+                  </p>
+                </div>
+                <button
+                  onClick={calibrateThreshold}
+                  disabled={!running || !modelReady || calibrating}
+                  className="rounded bg-purple-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                >
+                  {calibrating ? 'Calibrating...' : 'Calibrate'}
+                </button>
+              </div>
+              {calibrationSamples.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <ResponsiveContainer width="100%" height={110}>
+                    <BarChart data={calibrationHistogram}>
+                      <XAxis dataKey="bin" hide />
+                      <YAxis allowDecimals={false} width={24} tick={{ fontSize: 10 }} />
+                      <Tooltip />
+                      <Bar dataKey="count" fill="#7c3aed" radius={[3, 3, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <button
+                    onClick={() => setThreshold(Number(suggestedThreshold.toFixed(2)))}
+                    className="w-full rounded border border-purple-200 bg-white px-3 py-2 text-xs font-bold text-purple-700 dark:border-purple-800 dark:bg-gray-950 dark:text-purple-200"
+                  >
+                    Use suggested {Math.round(suggestedThreshold * 100)}%
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="mt-4 space-y-2">
               {classes.map(cls => {
                 const probability = predictions.find(prediction => prediction.id === cls.id)?.probability ?? 0;

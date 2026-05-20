@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 const root = dirname(fileURLToPath(new URL('../package.json', import.meta.url)));
 const publicDir = join(root, 'public');
 const navigation = readFileSync(join(root, 'src/data/navigation.ts'), 'utf8');
-const domain = process.env.SITE_URL ?? 'https://www.AimerSociety.com';
+const domain = process.env.SITE_URL ?? 'https://www.aimersociety.com/MachineLearningAlgorithms';
 const today = new Date().toISOString().slice(0, 10);
 
 const algorithmRoutes = [...navigation.matchAll(/route:\s*'([^']+)'/g)]

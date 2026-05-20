@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BarChart3, Database, Download, Grid3X3, LineChart, Table2, Trash2, Upload } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
 import { allSampleDatasets } from '../../../data/sampleDatasets';
@@ -34,6 +35,23 @@ function download(filename: string, content: string, type: string) {
   anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+function isMissing(value: unknown) {
+  return value === null || value === undefined || value === '' || (typeof value === 'number' && Number.isNaN(value));
+}
+
+function numericValues(rows: Row[], column: string) {
+  return rows.map(row => Number(row[column])).filter(value => Number.isFinite(value));
+}
+
+function percentile(values: number[], p: number) {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = (sorted.length - 1) * p;
+  const lo = Math.floor(index);
+  const hi = Math.ceil(index);
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (index - lo);
 }
 
 export default function DatasetManagerPage() {
@@ -72,6 +90,48 @@ export default function DatasetManagerPage() {
     const missing = draft.data.reduce((sum, row) => sum + draft.columns.filter(col => row[col] === null || row[col] === undefined || row[col] === '').length, 0);
     const numeric = draft.columns.filter(col => draft.data.some(row => !Number.isNaN(Number(row[col])) && row[col] !== null && row[col] !== '')).length;
     return { rows: draft.data.length, columns: draft.columns.length, missing, numeric, categorical: draft.columns.length - numeric };
+  }, [draft]);
+
+  const quality = useMemo(() => {
+    const labelColumn = draft.columns.find(col => ['label', 'class', 'target', 'category'].includes(col.toLowerCase()));
+    const classCounts = labelColumn
+      ? Object.entries(draft.data.reduce<Record<string, number>>((counts, row) => {
+        const key = String(row[labelColumn] ?? 'missing');
+        counts[key] = (counts[key] ?? 0) + 1;
+        return counts;
+      }, {})).map(([label, count]) => ({ label, count }))
+      : [];
+    const missingCells = draft.data.reduce((sum, row) => sum + draft.columns.filter(col => isMissing(row[col])).length, 0);
+    const totalCells = Math.max(1, draft.data.length * draft.columns.length);
+    const duplicateMap = new Map<string, number>();
+    draft.data.forEach(row => {
+      const key = JSON.stringify(draft.columns.map(col => String(row[col] ?? '').trim()));
+      duplicateMap.set(key, (duplicateMap.get(key) ?? 0) + 1);
+    });
+    const duplicateRows = [...duplicateMap.values()].reduce((sum, count) => sum + Math.max(0, count - 1), 0);
+    const types = draft.columns.map(column => {
+      const present = draft.data.map(row => row[column]).filter(value => !isMissing(value));
+      const numeric = present.length > 0 && present.every(value => Number.isFinite(Number(value)));
+      const datetime = present.length > 0 && present.every(value => !Number.isNaN(Date.parse(String(value))));
+      const kind = numeric ? 'Numeric' : datetime ? 'DateTime' : present.some(value => String(value).length > 40) ? 'Text' : 'Categorical';
+      const values = numericValues(draft.data, column);
+      const q1 = percentile(values, 0.25);
+      const q3 = percentile(values, 0.75);
+      const iqr = q3 - q1;
+      const outliers = values.filter(value => value < q1 - 1.5 * iqr || value > q3 + 1.5 * iqr).length;
+      const suspicious = /age|price|amount|score|income|weight|height/i.test(column) && !numeric;
+      return { column, kind, outliers, suspicious };
+    });
+    const counts = classCounts.map(item => item.count);
+    const minClass = Math.min(...counts, Infinity);
+    const maxClass = Math.max(...counts, 0);
+    const imbalanceRatio = counts.length ? maxClass / Math.max(1, minClass) : 1;
+    const missingRate = missingCells / totalCells;
+    const duplicateRate = duplicateRows / Math.max(1, draft.data.length);
+    const health = imbalanceRatio > 3 || missingRate > 0.15 || duplicateRate > 0.1
+      ? 'Poor'
+      : imbalanceRatio > 1.5 || missingRate > 0.05 || duplicateRate > 0.02 ? 'Fair' : 'Good';
+    return { labelColumn, classCounts, missingCells, missingRate, duplicateRows, duplicateRate, types, imbalanceRatio, health };
   }, [draft]);
 
   const loadSample = (id: string) => {
@@ -151,6 +211,20 @@ export default function DatasetManagerPage() {
     setActiveDataset(dataset, algorithmRoute);
     setActiveDatasetId(dataset.id);
     setMessage(`${dataset.name} saved and loaded for ${selectedAlgorithm.label}`);
+  };
+
+  const removeDuplicateRows = () => {
+    const seen = new Set<string>();
+    setDraft(previous => ({
+      ...previous,
+      data: previous.data.filter(row => {
+        const key = JSON.stringify(previous.columns.map(col => String(row[col] ?? '').trim()));
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }),
+    }));
+    setMessage('Duplicate rows removed from the current draft.');
   };
 
   const filteredSaved = saved.filter(dataset => {
@@ -253,6 +327,68 @@ export default function DatasetManagerPage() {
                   {label}
                 </Link>
               ))}
+            </div>
+          </Card>
+
+          <Card title="Quality Inspector" subtitle="Class balance, missing values, duplicates, outliers, and inferred column types">
+            <div className="grid gap-3 md:grid-cols-4">
+              <div className={`rounded p-3 ${quality.health === 'Good' ? 'bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-200' : quality.health === 'Fair' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-200' : 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-200'}`}>
+                <p className="text-xs font-bold uppercase">Dataset Health</p>
+                <p className="text-2xl font-black">{quality.health}</p>
+              </div>
+              <div className="rounded bg-gray-50 p-3 dark:bg-gray-900"><p className="text-xs text-gray-500">Missing cells</p><p className="text-2xl font-black">{quality.missingCells}</p><p className="text-xs">{(quality.missingRate * 100).toFixed(1)}%</p></div>
+              <div className="rounded bg-gray-50 p-3 dark:bg-gray-900"><p className="text-xs text-gray-500">Duplicate rows</p><p className="text-2xl font-black">{quality.duplicateRows}</p><p className="text-xs">{(quality.duplicateRate * 100).toFixed(1)}%</p></div>
+              <div className="rounded bg-gray-50 p-3 dark:bg-gray-900"><p className="text-xs text-gray-500">Class ratio</p><p className="text-2xl font-black">{quality.imbalanceRatio.toFixed(1)}x</p><p className="text-xs">{quality.labelColumn ?? 'no label column'}</p></div>
+            </div>
+
+            {quality.classCounts.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-sm font-bold">Class Balance</p>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={quality.classCounts}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                      {quality.classCounts.map(item => {
+                        const min = Math.min(...quality.classCounts.map(entry => entry.count));
+                        const ratio = item.count / Math.max(1, min);
+                        return <Cell key={item.label} fill={ratio <= 1.5 ? '#059669' : ratio <= 3 ? '#d97706' : '#dc2626'} />;
+                      })}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+                {quality.imbalanceRatio > 1.5 && <InfoBox type="warning">Largest class has {quality.imbalanceRatio.toFixed(1)}x more rows than the smallest class. Consider augmentation, upsampling, or collecting more minority-class examples.</InfoBox>}
+              </div>
+            )}
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <div>
+                <p className="mb-2 text-sm font-bold">Missing Value Heatmap</p>
+                <div className="overflow-auto rounded border border-gray-200 p-2 dark:border-gray-700">
+                  <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${draft.columns.length}, minmax(18px, 1fr))` }}>
+                    {draft.columns.map(col => <span key={col} className="truncate text-[10px] font-bold text-gray-500" title={col}>{col.slice(0, 3)}</span>)}
+                    {draft.data.slice(0, 20).flatMap((row, rowIndex) => draft.columns.map(col => <span key={`${rowIndex}-${col}`} title={`${rowIndex + 1}: ${col}`} className={`h-4 rounded-sm ${isMissing(row[col]) ? 'bg-red-500' : 'bg-green-500'}`} />))}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="text-sm font-bold">Column Types and Outliers</p>
+                  <button onClick={removeDuplicateRows} disabled={quality.duplicateRows === 0} className="rounded border border-gray-200 px-2 py-1 text-xs font-bold disabled:opacity-50 dark:border-gray-700">Remove duplicates</button>
+                </div>
+                <div className="max-h-64 space-y-2 overflow-auto pr-1">
+                  {quality.types.map(item => (
+                    <div key={item.column} className="flex items-center justify-between gap-3 rounded bg-gray-50 px-3 py-2 text-sm dark:bg-gray-900">
+                      <span className="min-w-0 truncate font-semibold">{item.column}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${item.kind === 'Numeric' ? 'bg-blue-100 text-blue-700' : item.kind === 'DateTime' ? 'bg-purple-100 text-purple-700' : 'bg-gray-200 text-gray-700'}`}>{item.kind}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${item.outliers ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>{item.outliers} outliers</span>
+                      {item.suspicious && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">check type</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </Card>
 

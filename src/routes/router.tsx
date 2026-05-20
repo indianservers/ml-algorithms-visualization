@@ -63,6 +63,9 @@ const GRUPage = lazy(() => import('../pages/algorithms/deepLearning/GRUPage'));
 const TransformerAttentionPage = lazy(() => import('../pages/algorithms/deepLearning/TransformerAttentionPage'));
 const MultiHeadAttentionPage = lazy(() => import('../pages/algorithms/deepLearning/MultiHeadAttentionPage'));
 const BackpropagationVisualizerPage = lazy(() => import('../pages/algorithms/deepLearning/BackpropagationVisualizerPage'));
+const FewShotLearningPage = lazy(() => import('../pages/algorithms/deepLearning/FewShotLearningPage'));
+const NetworkBuilderPage = lazy(() => import('../pages/algorithms/deepLearning/NetworkBuilderPage'));
+const TransferLearningPage = lazy(() => import('../pages/algorithms/deepLearning/TransferLearningPage'));
 
 // Evaluation
 const TrainTestSplitPage = lazy(() => import('../pages/algorithms/evaluation/TrainTestSplitPage'));
@@ -106,6 +109,7 @@ const CNNFilterExplorerPage = lazy(() => import('../pages/algorithms/computerVis
 const KMeansImageSegmentationPage = lazy(() => import('../pages/algorithms/computerVision/KMeansImageSegmentationPage'));
 const EdgeDetectionPage = lazy(() => import('../pages/algorithms/computerVision/EdgeDetectionPage'));
 const ObjectDetectionDemoPage = lazy(() => import('../pages/algorithms/computerVision/ObjectDetectionDemoPage'));
+const GradCAMPage = lazy(() => import('../pages/algorithms/computerVision/GradCAMPage'));
 
 // Recommendation
 const UserBasedCFPage = lazy(() => import('../pages/algorithms/recommendation/UserBasedCFPage'));
@@ -145,6 +149,8 @@ const BrowserModelLoaderPage = lazy(() => import('../pages/algorithms/deployment
 const ONNXRuntimeWebDemoPage = lazy(() => import('../pages/algorithms/deployment/ONNXRuntimeWebDemoPage'));
 const TensorFlowJSTrainingPage = lazy(() => import('../pages/algorithms/deployment/TensorFlowJSTrainingPage'));
 const ModelExportPage = lazy(() => import('../pages/algorithms/deployment/ModelExportPage'));
+const ExportHubPage = lazy(() => import('../pages/algorithms/deployment/ExportHubPage'));
+const ModelCardPage = lazy(() => import('../pages/algorithms/deployment/ModelCardPage'));
 
 // Lab
 const AlgorithmComparisonLabPage = lazy(() => import('../pages/algorithms/lab/AlgorithmComparisonLabPage'));
@@ -155,6 +161,12 @@ const DatasetManagerPage = lazy(() => import('../pages/algorithms/lab/DatasetMan
 const ReportBuilderPage = lazy(() => import('../pages/algorithms/lab/ReportBuilderPage'));
 const ArchitectureFlowLabPage = lazy(() => import('../pages/algorithms/lab/ArchitectureFlowLabPage'));
 const TrainYourModelPage = lazy(() => import('../pages/algorithms/lab/TrainYourModelPage'));
+const ImageAnnotationPage = lazy(() => import('../pages/algorithms/lab/ImageAnnotationPage'));
+const DataAugmentationPage = lazy(() => import('../pages/algorithms/lab/DataAugmentationPage'));
+const ModelComparisonPage = lazy(() => import('../pages/algorithms/lab/ModelComparisonPage'));
+const BatchInferencePage = lazy(() => import('../pages/algorithms/lab/BatchInferencePage'));
+const ActiveLearningPage = lazy(() => import('../pages/algorithms/lab/ActiveLearningPage'));
+const PerformanceDashboardPage = lazy(() => import('../pages/algorithms/lab/PerformanceDashboardPage'));
 
 export const router = createBrowserRouter([
   {
@@ -216,6 +228,9 @@ export const router = createBrowserRouter([
       { path: 'ml/deep-learning/transformer-attention', element: <TransformerAttentionPage /> },
       { path: 'ml/deep-learning/multi-head-attention', element: <MultiHeadAttentionPage /> },
       { path: 'ml/deep-learning/backpropagation-visualizer', element: <BackpropagationVisualizerPage /> },
+      { path: 'ml/deep-learning/few-shot-learning', element: <FewShotLearningPage /> },
+      { path: 'ml/deep-learning/network-builder', element: <NetworkBuilderPage /> },
+      { path: 'ml/deep-learning/transfer-learning', element: <TransferLearningPage /> },
       // Evaluation
       { path: 'ml/evaluation/train-test-split', element: <TrainTestSplitPage /> },
       { path: 'ml/evaluation/cross-validation', element: <CrossValidationPage /> },
@@ -255,6 +270,7 @@ export const router = createBrowserRouter([
       { path: 'ml/computer-vision/kmeans-image-segmentation', element: <KMeansImageSegmentationPage /> },
       { path: 'ml/computer-vision/edge-detection', element: <EdgeDetectionPage /> },
       { path: 'ml/computer-vision/object-detection-demo', element: <ObjectDetectionDemoPage /> },
+      { path: 'ml/computer-vision/grad-cam', element: <GradCAMPage /> },
       // Recommendation
       { path: 'ml/recommendation/user-based-cf', element: <UserBasedCFPage /> },
       { path: 'ml/recommendation/item-based-cf', element: <ItemBasedCFPage /> },
@@ -287,6 +303,8 @@ export const router = createBrowserRouter([
       { path: 'ml/deployment/onnx-runtime-demo', element: <ONNXRuntimeWebDemoPage /> },
       { path: 'ml/deployment/tensorflowjs-training', element: <TensorFlowJSTrainingPage /> },
       { path: 'ml/deployment/model-export', element: <ModelExportPage /> },
+      { path: 'ml/deployment/export-hub', element: <ExportHubPage /> },
+      { path: 'ml/deployment/model-card', element: <ModelCardPage /> },
       // Lab
       { path: 'ml/lab/algorithm-comparison', element: <AlgorithmComparisonLabPage /> },
       { path: 'ml/lab/hyperparameter-tuning', element: <HyperparameterTuningLabPage /> },
@@ -296,6 +314,12 @@ export const router = createBrowserRouter([
       { path: 'ml/lab/report-builder', element: <ReportBuilderPage /> },
       { path: 'ml/lab/architecture-flow', element: <ArchitectureFlowLabPage /> },
       { path: 'ml/lab/train-your-model', element: <TrainYourModelPage /> },
+      { path: 'ml/lab/image-annotation', element: <ImageAnnotationPage /> },
+      { path: 'ml/lab/data-augmentation', element: <DataAugmentationPage /> },
+      { path: 'ml/lab/model-comparison', element: <ModelComparisonPage /> },
+      { path: 'ml/lab/batch-inference', element: <BatchInferencePage /> },
+      { path: 'ml/lab/active-learning', element: <ActiveLearningPage /> },
+      { path: 'ml/lab/performance-dashboard', element: <PerformanceDashboardPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

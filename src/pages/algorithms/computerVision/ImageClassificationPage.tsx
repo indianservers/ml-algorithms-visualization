@@ -14,6 +14,7 @@ type ExampleItem = { id: string; classId: string; data: Float32Array; preview: s
 type Prediction = { classId: string; name: string; probability: number; color: string };
 type TrainPoint = { epoch: number; loss: number; accuracy: number };
 type ConfusionReport = { matrix: number[][]; total: number; classMetrics: Array<{ classId: string; precision: number; recall: number; f1: number }>; worstPair: { actual: string; predicted: string; count: number } | null };
+type CalibrationSample = { classId: string; confidence: number; accepted: boolean };
 
 const IMAGE_SIZE = 64;
 const CAPTURE_INTERVAL_MS = 45;
@@ -104,7 +105,11 @@ export default function ImageClassificationPage() {
   const [history, setHistory] = useState<TrainPoint[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.7);
+  const [calibrationSamples, setCalibrationSamples] = useState<CalibrationSample[]>([]);
+  const [calibrating, setCalibrating] = useState(false);
   const [confusionReport, setConfusionReport] = useState<ConfusionReport | null>(null);
+  const [balanceMode, setBalanceMode] = useState(false);
+  const [balanceTarget, setBalanceTarget] = useState(20);
   const [status, setStatus] = useState('Start the camera, hold a class button to collect examples, then train.');
 
   useEffect(() => {
@@ -128,8 +133,29 @@ export default function ImageClassificationPage() {
   const readyToTrain = classes.length >= 2 && classes.every(item => (sampleCounts[item.id] ?? 0) >= 10) && !training && extractorReady;
   const latest = history[history.length - 1];
   const totalSamples = examples.length;
+  const maxClassSamples = Math.max(0, ...classes.map(item => sampleCounts[item.id] ?? 0));
+  const balanceTargetCount = balanceMode ? balanceTarget : maxClassSamples;
+  const classNeedingSamples = classes
+    .map(item => ({ ...item, count: sampleCounts[item.id] ?? 0, needed: Math.max(0, balanceTargetCount - (sampleCounts[item.id] ?? 0)) }))
+    .sort((a, b) => b.needed - a.needed)[0];
   const bestPrediction = predictions[0];
   const predictedLabel = bestPrediction && bestPrediction.probability >= confidenceThreshold ? bestPrediction.name : 'Unknown / Uncertain';
+  const rejectionRate = calibrationSamples.length
+    ? calibrationSamples.filter(sample => sample.confidence < confidenceThreshold).length / calibrationSamples.length
+    : bestPrediction ? (bestPrediction.probability >= confidenceThreshold ? 0 : 1) : 0;
+  const calibrationHistogram = useMemo(() => Array.from({ length: 10 }, (_, index) => {
+    const low = index / 10;
+    const high = (index + 1) / 10;
+    return {
+      bin: `${Math.round(low * 100)}-${Math.round(high * 100)}%`,
+      count: calibrationSamples.filter(sample => sample.confidence >= low && (index === 9 ? sample.confidence <= high : sample.confidence < high)).length,
+    };
+  }), [calibrationSamples]);
+  const suggestedThreshold = useMemo(() => {
+    if (!calibrationSamples.length) return confidenceThreshold;
+    const sorted = [...calibrationSamples].map(sample => sample.confidence).sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length * 0.25)] ?? confidenceThreshold;
+  }, [calibrationSamples, confidenceThreshold]);
 
   const ensureFeatureExtractor = async () => {
     await tf.ready();
@@ -270,6 +296,29 @@ export default function ImageClassificationPage() {
     modelRef.current?.dispose();
     modelRef.current = null;
     setModelReady(false);
+    setCalibrationSamples([]);
+  };
+
+  const autoAugmentClass = (classId: string) => {
+    const source = examples.filter(example => example.classId === classId);
+    const count = sampleCounts[classId] ?? 0;
+    const needed = Math.max(0, balanceTargetCount - count);
+    if (!source.length || needed <= 0) return;
+    const augmented = Array.from({ length: needed }, (_, index) => {
+      const base = source[index % source.length];
+      const data = new Float32Array(base.data.length);
+      for (let featureIndex = 0; featureIndex < base.data.length; featureIndex++) {
+        data[featureIndex] = base.data[featureIndex] + (Math.random() - 0.5) * 0.035;
+      }
+      return {
+        id: `${classId}_aug_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 7)}`,
+        classId,
+        data,
+        preview: base.preview,
+      };
+    });
+    setExamples(current => [...current, ...augmented]);
+    setStatus(`Added ${augmented.length} augmented examples to balance the class.`);
   };
 
   const renameClass = (id: string, name: string) => {
@@ -280,6 +329,7 @@ export default function ImageClassificationPage() {
     setExamples(current => current.filter(item => item.classId !== id));
     setPredictions([]);
     setConfusionReport(null);
+    setCalibrationSamples([]);
   };
 
   const removeClass = (id: string) => {
@@ -291,6 +341,7 @@ export default function ImageClassificationPage() {
     setExamples(current => current.filter(item => item.classId !== id));
     setPredictions([]);
     setConfusionReport(null);
+    setCalibrationSamples([]);
     modelRef.current?.dispose();
     modelRef.current = null;
     setModelReady(false);
@@ -302,6 +353,7 @@ export default function ImageClassificationPage() {
     setHistory([]);
     setPredictions([]);
     setConfusionReport(null);
+    setCalibrationSamples([]);
     modelRef.current?.dispose();
     modelRef.current = null;
     setModelReady(false);
@@ -340,6 +392,7 @@ export default function ImageClassificationPage() {
     setHistory([]);
     setPredictions([]);
     setConfusionReport(null);
+    setCalibrationSamples([]);
     setStatus('Training TensorFlow.js image classifier locally...');
     modelRef.current?.dispose();
     setModelReady(false);
@@ -442,6 +495,46 @@ export default function ImageClassificationPage() {
     setPredictions(next);
   }, [classes]);
 
+  const readImagePrediction = useCallback(async () => {
+    const model = modelRef.current;
+    const video = videoRef.current;
+    const extractor = featureExtractorRef.current;
+    if (!model || !video || !extractor || video.readyState < 2) return null;
+    const input = extractor.infer(video, true) as tf.Tensor;
+    const output = model.predict(input) as tf.Tensor;
+    const values = Array.from(await output.data());
+    input.dispose();
+    output.dispose();
+    return classes
+      .map((item, index) => ({
+        classId: item.id,
+        name: item.name,
+        color: item.color,
+        probability: values[index] ?? 0,
+      }))
+      .sort((a, b) => b.probability - a.probability);
+  }, [classes]);
+
+  const calibrateThreshold = async () => {
+    if (!modelRef.current || !cameraReady) {
+      setStatus('Start the camera and train a model before calibration.');
+      return;
+    }
+    setCalibrating(true);
+    setStatus('Calibrating confidence threshold from 30 live webcam frames...');
+    const samples: CalibrationSample[] = [];
+    for (let index = 0; index < 30; index++) {
+      const next = await readImagePrediction();
+      const top = next?.[0];
+      if (next) setPredictions(next);
+      if (top) samples.push({ classId: top.classId, confidence: top.probability, accepted: top.probability >= confidenceThreshold });
+      await new Promise(resolve => window.setTimeout(resolve, 90));
+    }
+    setCalibrationSamples(samples);
+    setCalibrating(false);
+    setStatus(`Calibration complete. Suggested threshold: ${Math.round((samples.length ? ([...samples].map(sample => sample.confidence).sort((a, b) => a - b)[Math.floor(samples.length * 0.25)] ?? confidenceThreshold) : confidenceThreshold) * 100)}%.`);
+  };
+
   const startLiveInference = useCallback(() => {
     if (predictTimerRef.current) window.clearInterval(predictTimerRef.current);
     predictFrame();
@@ -527,6 +620,48 @@ export default function ImageClassificationPage() {
             { label: 'Top Confidence', value: bestPrediction?.probability ?? 0, format: 'percent', color: 'blue' },
           ]} />
 
+          <Card title="Balance">
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <label className="inline-flex items-center gap-2 font-bold">
+                  <input type="checkbox" checked={balanceMode} onChange={event => setBalanceMode(event.target.checked)} className="h-4 w-4 accent-blue-600" />
+                  Balance mode
+                </label>
+                <label className="text-xs font-bold text-gray-500">
+                  Target
+                  <input type="number" min={10} max={100} value={balanceTarget} onChange={event => setBalanceTarget(Number(event.target.value))} className="ml-2 w-16 rounded border border-gray-200 bg-white px-2 py-1 dark:border-gray-700 dark:bg-gray-900" />
+                </label>
+              </div>
+              <div className="space-y-2">
+                {classes.map(item => {
+                  const count = sampleCounts[item.id] ?? 0;
+                  const ratio = balanceTargetCount ? count / balanceTargetCount : 1;
+                  const color = ratio >= 0.8 ? 'bg-green-500' : ratio >= 0.5 ? 'bg-amber-500' : 'bg-red-500';
+                  return (
+                    <div key={item.id}>
+                      <div className="mb-1 flex items-center justify-between text-xs font-bold">
+                        <span>{item.name}</span>
+                        <span>{count} / {balanceTargetCount || balanceTarget}</span>
+                      </div>
+                      <div className="relative h-3 overflow-hidden rounded bg-gray-100 dark:bg-gray-900">
+                        <div className={`h-full ${color}`} style={{ width: `${Math.min(100, ratio * 100)}%` }} />
+                        <div className="absolute inset-y-0 right-0 border-l-2 border-dashed border-gray-500" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {classNeedingSamples && classNeedingSamples.needed > 0 ? (
+                <div className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-200">
+                  {classNeedingSamples.name} needs {classNeedingSamples.needed} more sample{classNeedingSamples.needed === 1 ? '' : 's'} to match the target.
+                  <button onClick={() => autoAugmentClass(classNeedingSamples.id)} disabled={(sampleCounts[classNeedingSamples.id] ?? 0) === 0} className="mt-2 w-full rounded bg-amber-600 px-2 py-1 font-bold text-white disabled:opacity-50">Auto-augment this class</button>
+                </div>
+              ) : (
+                <div className="rounded border border-green-200 bg-green-50 p-2 text-xs font-bold text-green-700 dark:border-green-900 dark:bg-green-950/20 dark:text-green-200">Dataset balanced. Ready to train.</div>
+              )}
+            </div>
+          </Card>
+
           <InfoBox type={readyToTrain ? 'success' : 'info'} title="Runtime Status">{status}</InfoBox>
         </div>
 
@@ -544,6 +679,7 @@ export default function ImageClassificationPage() {
               {classes.map(item => {
                 const previews = examples.filter(example => example.classId === item.id).slice(-6);
                 const recording = activeCapture === item.id;
+                const classFull = balanceMode && (sampleCounts[item.id] ?? 0) >= balanceTarget;
                 return (
                   <div key={item.id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
                     <div className="flex items-center gap-2">
@@ -559,11 +695,11 @@ export default function ImageClassificationPage() {
                         onPointerUp={stopCapture}
                         onPointerCancel={stopCapture}
                         onPointerLeave={stopCapture}
-                        disabled={!cameraReady}
+                        disabled={!cameraReady || classFull}
                         className={`inline-flex flex-1 items-center justify-center gap-2 rounded px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 ${recording ? 'bg-red-600' : 'bg-blue-600'}`}
                       >
                         <Circle size={13} className={recording ? 'fill-current' : ''} />
-                        {recording ? 'Recording 20+ fps target' : 'Hold to Record'}
+                        {classFull ? 'Class full' : recording ? 'Recording 20+ fps target' : 'Hold to Record'}
                       </button>
                       <button onClick={() => clearClass(item.id)} className="rounded border border-gray-200 px-3 py-2 text-xs font-semibold dark:border-gray-700">Clear</button>
                     </div>
@@ -621,6 +757,41 @@ export default function ImageClassificationPage() {
                     Confidence threshold: {(confidenceThreshold * 100).toFixed(0)}%
                     <input type="range" min={0.5} max={0.99} step={0.01} value={confidenceThreshold} onChange={event => setConfidenceThreshold(Number(event.target.value))} className="mt-2 w-full accent-purple-600" />
                   </label>
+                  <div className="rounded-lg border border-purple-100 bg-purple-50 p-3 text-sm dark:border-purple-900/60 dark:bg-purple-950/20">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-purple-900 dark:text-purple-100">Tune confidence gate</p>
+                        <p className="text-xs text-purple-700 dark:text-purple-200">
+                          Current rejection rate: <b>{(rejectionRate * 100).toFixed(0)}%</b> of frames
+                        </p>
+                      </div>
+                      <button
+                        onClick={calibrateThreshold}
+                        disabled={!modelReady || !cameraReady || calibrating}
+                        className="rounded bg-purple-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                      >
+                        {calibrating ? 'Calibrating...' : 'Calibrate 30 frames'}
+                      </button>
+                    </div>
+                    {calibrationSamples.length > 0 && (
+                      <div className="mt-3 grid gap-3 md:grid-cols-[1fr_130px]">
+                        <ResponsiveContainer width="100%" height={110}>
+                          <BarChart data={calibrationHistogram}>
+                            <XAxis dataKey="bin" hide />
+                            <YAxis allowDecimals={false} width={24} tick={{ fontSize: 10 }} />
+                            <Tooltip />
+                            <Bar dataKey="count" fill="#7c3aed" radius={[3, 3, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                        <button
+                          onClick={() => setConfidenceThreshold(Number(suggestedThreshold.toFixed(2)))}
+                          className="rounded border border-purple-200 bg-white px-3 py-2 text-xs font-bold text-purple-700 dark:border-purple-800 dark:bg-gray-950 dark:text-purple-200"
+                        >
+                          Use suggested {Math.round(suggestedThreshold * 100)}%
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <ResponsiveContainer width="100%" height={260}>
                     <BarChart data={predictions}>
                       <CartesianGrid strokeDasharray="3 3" />

@@ -1,51 +1,98 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as mobilenet from '@tensorflow-models/mobilenet';
 import * as tf from '@tensorflow/tfjs';
-import { Camera, Download, FileImage, FolderOpen, Layers, Play, Plus, RotateCcw, Save, Trash2, Video } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Camera, Copy, Download, FileImage, FolderOpen, Layers, Play, Plus, RotateCcw, Save, Trash2, Video } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, InfoBox } from '../../../components/common/Card';
 import { MetricsPanel } from '../../../components/ml/MetricsPanel';
 import { stopMediaElementStream, stopMediaStream } from '../../../lib/media/streams';
 
 type Box = { x: number; y: number; w: number; h: number };
+type BoxAnnotation = Box & { id: string; classId: string };
 type ClassItem = { id: string; name: string; color: string };
-type Sample = { id: string; classId: string; feature: Float32Array; box: Box; preview: string };
-type Prediction = { classId: string; name: string; color: string; confidence: number; box: Box };
+type Sample = { id: string; feature: Float32Array; annotations: BoxAnnotation[]; preview: string; frameIndex: number };
+type Prediction = Box & { id: string; classId: string; name: string; color: string; confidence: number };
 type TrainPoint = { epoch: number; loss: number };
 
 const CANVAS_W = 640;
 const CANVAS_H = 360;
+const ANCHORS = [[0.08, 0.08], [0.15, 0.15], [0.28, 0.28], [0.45, 0.45], [0.65, 0.65]] as const;
 const COLORS = ['#2563eb', '#059669', '#dc2626', '#9333ea', '#ea580c', '#0891b2'];
 const initialClasses: ClassItem[] = [
   { id: 'object_a', name: 'Object 1', color: COLORS[0] },
   { id: 'object_b', name: 'Object 2', color: COLORS[1] },
 ];
 
+function downloadJson(filename: string, payload: unknown) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function clampBox(box: Box): Box {
+  return {
+    x: Math.max(0, Math.min(0.98, box.x)),
+    y: Math.max(0, Math.min(0.98, box.y)),
+    w: Math.max(0.02, Math.min(1 - box.x, box.w)),
+    h: Math.max(0.02, Math.min(1 - box.y, box.h)),
+  };
+}
+
+function iou(a: Box, b: Box) {
+  const ax2 = a.x + a.w;
+  const ay2 = a.y + a.h;
+  const bx2 = b.x + b.w;
+  const by2 = b.y + b.h;
+  const ix = Math.max(0, Math.min(ax2, bx2) - Math.max(a.x, b.x));
+  const iy = Math.max(0, Math.min(ay2, by2) - Math.max(a.y, b.y));
+  const intersection = ix * iy;
+  return intersection / Math.max(1e-8, a.w * a.h + b.w * b.h - intersection);
+}
+
+function anchorBox(anchorIndex: number): Box {
+  const [w, h] = ANCHORS[anchorIndex];
+  return { x: 0.5 - w / 2, y: 0.5 - h / 2, w, h };
+}
+
 function buildDetector(classCount: number, featureSize: number, learningRate: number) {
-  const input = tf.input({ shape: [featureSize] });
-  const hidden = tf.layers.dense({ units: 128, activation: 'relu' }).apply(input) as tf.SymbolicTensor;
-  const dropout = tf.layers.dropout({ rate: 0.2 }).apply(hidden) as tf.SymbolicTensor;
-  const box = tf.layers.dense({ units: 4, activation: 'sigmoid', name: 'box' }).apply(dropout) as tf.SymbolicTensor;
-  const label = tf.layers.dense({ units: classCount, activation: 'softmax', name: 'label' }).apply(dropout) as tf.SymbolicTensor;
-  const model = tf.model({ inputs: input, outputs: [box, label] });
-  model.compile({
-    optimizer: tf.train.adam(learningRate),
-    loss: ['meanSquaredError', 'categoricalCrossentropy'],
-  });
+  const model = tf.sequential();
+  model.add(tf.layers.dense({ inputShape: [featureSize], units: 256, activation: 'relu' }));
+  model.add(tf.layers.dropout({ rate: 0.2 }));
+  model.add(tf.layers.dense({ units: ANCHORS.length * (5 + classCount) }));
+  model.add(tf.layers.reshape({ targetShape: [ANCHORS.length, 5 + classCount] }));
+  model.compile({ optimizer: tf.train.adam(learningRate), loss: 'meanSquaredError' });
   return model;
 }
 
-function samplesToTensors(samples: Sample[], classes: ClassItem[], featureSize: number) {
+function targetsForSample(sample: Sample, classes: ClassItem[]) {
+  const stride = 5 + classes.length;
   const classIndex = new Map(classes.map((item, index) => [item.id, index]));
-  const xs = tf.tensor2d(samples.flatMap(sample => Array.from(sample.feature)), [samples.length, featureSize]);
-  const boxes = tf.tensor2d(samples.flatMap(sample => [sample.box.x, sample.box.y, sample.box.w, sample.box.h]), [samples.length, 4]);
-  const labels = tf.tensor2d(samples.flatMap(sample => {
-    const row = Array(classes.length).fill(0);
-    row[classIndex.get(sample.classId) ?? 0] = 1;
-    return row;
-  }), [samples.length, classes.length]);
-  return { xs, boxes, labels };
+  const target = Array.from({ length: ANCHORS.length }, () => Array(stride).fill(0));
+  sample.annotations.forEach(annotation => {
+    const box = clampBox(annotation);
+    const bestAnchor = ANCHORS.map((_, index) => ({ index, score: iou(box, anchorBox(index)) })).sort((a, b) => b.score - a.score)[0]?.index ?? 0;
+    const [aw, ah] = ANCHORS[bestAnchor];
+    const cx = box.x + box.w / 2;
+    const cy = box.y + box.h / 2;
+    target[bestAnchor][0] = 1;
+    target[bestAnchor][1] = cx - 0.5;
+    target[bestAnchor][2] = cy - 0.5;
+    target[bestAnchor][3] = Math.log(box.w / aw);
+    target[bestAnchor][4] = Math.log(box.h / ah);
+    target[bestAnchor][5 + (classIndex.get(annotation.classId) ?? 0)] = 1;
+  });
+  return target.flat();
+}
+
+function samplesToTensors(samples: Sample[], classes: ClassItem[], featureSize: number) {
+  return {
+    xs: tf.tensor2d(samples.flatMap(sample => Array.from(sample.feature)), [samples.length, featureSize]),
+    ys: tf.tensor3d(samples.flatMap(sample => targetsForSample(sample, classes)), [samples.length, ANCHORS.length, 5 + classes.length]),
+  };
 }
 
 function loadImage(file: File) {
@@ -64,25 +111,6 @@ function loadImage(file: File) {
   });
 }
 
-function downloadJson(filename: string, payload: unknown) {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-function clampBox(box: Box): Box {
-  return {
-    x: Math.max(0, Math.min(1, box.x)),
-    y: Math.max(0, Math.min(1, box.y)),
-    w: Math.max(0.02, Math.min(1, box.w)),
-    h: Math.max(0.02, Math.min(1, box.h)),
-  };
-}
-
 export default function ObjectDetectionDemoPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -93,39 +121,75 @@ export default function ObjectDetectionDemoPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const undoStackRef = useRef<Array<Map<number, BoxAnnotation[]>>>([]);
 
   const [classes, setClasses] = useState<ClassItem[]>(initialClasses);
   const [selectedClassId, setSelectedClassId] = useState(initialClasses[0].id);
   const [samples, setSamples] = useState<Sample[]>([]);
+  const [annotationsByFrame, setAnnotationsByFrame] = useState<Map<number, BoxAnnotation[]>>(() => new Map([[0, []]]));
+  const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
+  const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null);
+  const [draftBox, setDraftBox] = useState<Box | null>(null);
   const [featureSize, setFeatureSize] = useState(1024);
   const [cameraReady, setCameraReady] = useState(false);
   const [sourceReady, setSourceReady] = useState(false);
-  const [currentBox, setCurrentBox] = useState<Box | null>(null);
-  const [prediction, setPrediction] = useState<Prediction | null>(null);
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [history, setHistory] = useState<TrainPoint[]>([]);
   const [epochs, setEpochs] = useState(25);
   const [batchSize, setBatchSize] = useState(8);
   const [learningRate, setLearningRate] = useState(0.001);
+  const [confidenceThreshold, setConfidenceThreshold] = useState(0.45);
+  const [nmsThreshold, setNmsThreshold] = useState(0.45);
+  const [lastLatency, setLastLatency] = useState(0);
   const [training, setTraining] = useState(false);
-  const [status, setStatus] = useState('Start the camera or import images, draw a box, save samples, then train.');
+  const [status, setStatus] = useState('Start the camera or import images, draw one or more boxes, save the frame, then train.');
 
+  const currentAnnotations = annotationsByFrame.get(currentFrameIndex) ?? [];
+  const latest = history[history.length - 1];
   const sampleCounts = useMemo(() => Object.fromEntries(classes.map(item => [
     item.id,
-    samples.filter(sample => sample.classId === item.id).length,
+    samples.reduce((sum, sample) => sum + sample.annotations.filter(annotation => annotation.classId === item.id).length, 0),
   ])), [classes, samples]);
-  const readyToTrain = classes.length >= 2 && classes.every(item => (sampleCounts[item.id] ?? 0) >= 3) && !!extractorRef.current && !training;
-  const latest = history[history.length - 1];
-  const predictionRows = prediction
-    ? [{ name: prediction.name, confidence: prediction.confidence, color: prediction.color }]
-    : [];
+  const readyToTrain = classes.length >= 2 && classes.every(item => (sampleCounts[item.id] ?? 0) >= 3) && !!extractorRef.current && !training && samples.length > 0;
+
+  const pushUndo = useCallback(() => {
+    undoStackRef.current = [...undoStackRef.current, new Map([...annotationsByFrame.entries()].map(([key, value]) => [key, value.map(item => ({ ...item }))]))].slice(-20);
+  }, [annotationsByFrame]);
+
+  const updateCurrentAnnotations = useCallback((updater: (items: BoxAnnotation[]) => BoxAnnotation[]) => {
+    pushUndo();
+    setAnnotationsByFrame(current => {
+      const next = new Map(current);
+      next.set(currentFrameIndex, updater(next.get(currentFrameIndex) ?? []));
+      return next;
+    });
+  }, [currentFrameIndex, pushUndo]);
+
+  const undo = () => {
+    const previous = undoStackRef.current.at(-1);
+    if (!previous) return;
+    undoStackRef.current = undoStackRef.current.slice(0, -1);
+    setAnnotationsByFrame(previous);
+  };
 
   useEffect(() => () => {
     if (liveTimerRef.current) window.clearInterval(liveTimerRef.current);
     modelRef.current?.dispose();
     stopMediaStream(streamRef.current);
-    streamRef.current = null;
     stopMediaElementStream(videoRef.current);
   }, []);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Delete' && selectedBoxId) {
+        updateCurrentAnnotations(items => items.filter(item => item.id !== selectedBoxId));
+        setSelectedBoxId(null);
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') undo();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedBoxId, updateCurrentAnnotations]);
 
   const ensureExtractor = async () => {
     await tf.ready();
@@ -136,51 +200,57 @@ export default function ObjectDetectionDemoPage() {
     return extractorRef.current;
   };
 
-  const drawCanvas = useCallback((box = currentBox, detected = prediction) => {
+  const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
     canvas.width = CANVAS_W;
     canvas.height = CANVAS_H;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    if (imageRef.current) {
-      ctx.drawImage(imageRef.current, 0, 0, CANVAS_W, CANVAS_H);
-    } else if (videoRef.current && cameraReady) {
-      ctx.drawImage(videoRef.current, 0, 0, CANVAS_W, CANVAS_H);
-    } else {
+    if (imageRef.current) ctx.drawImage(imageRef.current, 0, 0, CANVAS_W, CANVAS_H);
+    else if (videoRef.current && cameraReady) ctx.drawImage(videoRef.current, 0, 0, CANVAS_W, CANVAS_H);
+    else {
       ctx.fillStyle = '#9ca3af';
       ctx.font = '16px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('Start camera or import an image', CANVAS_W / 2, CANVAS_H / 2);
     }
-    if (box) {
-      const cls = classes.find(item => item.id === selectedClassId) ?? classes[0];
+
+    const drawBox = (box: Box, cls: ClassItem, label: string, selected = false, dashed = false) => {
+      const x = box.x * CANVAS_W;
+      const y = box.y * CANVAS_H;
+      const w = box.w * CANVAS_W;
+      const h = box.h * CANVAS_H;
+      ctx.save();
       ctx.strokeStyle = cls.color;
-      ctx.lineWidth = 3;
-      ctx.strokeRect(box.x * CANVAS_W, box.y * CANVAS_H, box.w * CANVAS_W, box.h * CANVAS_H);
-      ctx.fillStyle = cls.color;
-      ctx.fillRect(box.x * CANVAS_W, Math.max(0, box.y * CANVAS_H - 22), Math.max(70, box.w * CANVAS_W), 22);
-      ctx.fillStyle = 'white';
-      ctx.font = '12px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(cls.name, box.x * CANVAS_W + 6, Math.max(14, box.y * CANVAS_H - 7));
-    }
-    if (detected) {
-      ctx.strokeStyle = detected.color;
-      ctx.lineWidth = 4;
-      ctx.setLineDash([8, 4]);
-      ctx.strokeRect(detected.box.x * CANVAS_W, detected.box.y * CANVAS_H, detected.box.w * CANVAS_W, detected.box.h * CANVAS_H);
+      ctx.lineWidth = selected ? 4 : 3;
+      if (dashed || selected) ctx.setLineDash([7, 4]);
+      ctx.strokeRect(x, y, w, h);
       ctx.setLineDash([]);
-      ctx.fillStyle = detected.color;
-      ctx.fillRect(detected.box.x * CANVAS_W, Math.max(0, detected.box.y * CANVAS_H - 24), Math.max(120, detected.box.w * CANVAS_W), 24);
+      ctx.fillStyle = cls.color;
+      ctx.fillRect(x, Math.max(0, y - 22), Math.max(82, label.length * 7 + 12), 22);
       ctx.fillStyle = 'white';
       ctx.font = '12px sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(`${detected.name} ${(detected.confidence * 100).toFixed(1)}%`, detected.box.x * CANVAS_W + 6, Math.max(16, detected.box.y * CANVAS_H - 8));
-    }
-  }, [cameraReady, classes, currentBox, prediction, selectedClassId]);
+      ctx.fillText(label, x + 6, Math.max(14, y - 7));
+      if (selected) {
+        ctx.fillStyle = '#fff';
+        [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].forEach(([hx, hy]) => {
+          ctx.fillRect(hx - 4, hy - 4, 8, 8);
+          ctx.strokeRect(hx - 4, hy - 4, 8, 8);
+        });
+      }
+      ctx.restore();
+    };
+
+    currentAnnotations.forEach(annotation => {
+      const cls = classes.find(item => item.id === annotation.classId) ?? classes[0];
+      drawBox(annotation, cls, cls.name, annotation.id === selectedBoxId);
+    });
+    if (draftBox) drawBox(draftBox, classes.find(item => item.id === selectedClassId) ?? classes[0], 'new box', false, true);
+    predictions.forEach(prediction => drawBox(prediction, prediction, `${prediction.name} ${(prediction.confidence * 100).toFixed(0)}%`, false, true));
+  }, [cameraReady, classes, currentAnnotations, draftBox, predictions, selectedBoxId, selectedClassId]);
 
   useEffect(() => {
     drawCanvas();
@@ -188,11 +258,10 @@ export default function ObjectDetectionDemoPage() {
 
   const syncSourceCanvas = () => {
     const canvas = sourceCanvasRef.current;
-    if (!canvas) return null;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return null;
     canvas.width = CANVAS_W;
     canvas.height = CANVAS_H;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
     if (imageRef.current) ctx.drawImage(imageRef.current, 0, 0, CANVAS_W, CANVAS_H);
     else if (videoRef.current && cameraReady) ctx.drawImage(videoRef.current, 0, 0, CANVAS_W, CANVAS_H);
     else return null;
@@ -207,7 +276,7 @@ export default function ObjectDetectionDemoPage() {
     const values = new Float32Array(await activation.data());
     activation.dispose();
     setFeatureSize(values.length);
-    return { feature: values, preview: source.toDataURL('image/jpeg', 0.72) };
+    return { feature: values, preview: source.toDataURL('image/jpeg', 0.74) };
   };
 
   const startCamera = async () => {
@@ -225,9 +294,8 @@ export default function ObjectDetectionDemoPage() {
       imageRef.current = null;
       setCameraReady(true);
       setSourceReady(true);
-      setPrediction(null);
-      setStatus('Camera is ready. Draw a box on the frame or start live inference after training.');
-      drawCanvas();
+      setPredictions([]);
+      setStatus('Camera is ready. Draw multiple boxes on the frame, or start live inference after training.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Unable to start camera.');
     }
@@ -245,32 +313,23 @@ export default function ObjectDetectionDemoPage() {
   };
 
   const captureFrame = () => {
-    if (!videoRef.current || !cameraReady) return;
-    const canvas = sourceCanvasRef.current;
-    if (!canvas) return;
-    canvas.width = CANVAS_W;
-    canvas.height = CANVAS_H;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.drawImage(videoRef.current, 0, 0, CANVAS_W, CANVAS_H);
+    const source = syncSourceCanvas();
+    if (!source) return;
     const image = new Image();
     image.onload = () => {
       imageRef.current = image;
       setSourceReady(true);
-      setPrediction(null);
-      drawCanvas();
+      setPredictions([]);
     };
-    image.src = canvas.toDataURL('image/jpeg', 0.8);
+    image.src = source.toDataURL('image/jpeg', 0.82);
   };
 
   const importImage = async (file: File) => {
     await ensureExtractor();
-    const image = await loadImage(file);
-    imageRef.current = image;
+    imageRef.current = await loadImage(file);
     setSourceReady(true);
-    setPrediction(null);
-    setStatus(`Loaded ${file.name}. Draw a bounding box and save the sample.`);
-    drawCanvas();
+    setPredictions([]);
+    setStatus(`Loaded ${file.name}. Draw one or more boxes and save the frame.`);
   };
 
   const importFilesAsSamples = async (classId: string, fileList: FileList | null) => {
@@ -282,31 +341,27 @@ export default function ObjectDetectionDemoPage() {
       setStatus(`Importing ${files.length} image${files.length === 1 ? '' : 's'} with full-frame boxes...`);
       const imported: Sample[] = [];
       for (const [index, file] of files.entries()) {
-        const image = await loadImage(file);
-        imageRef.current = image;
+        imageRef.current = await loadImage(file);
         const { feature, preview } = await extractFeature();
         imported.push({
           id: `${classId}_file_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 7)}`,
-          classId,
           feature,
           preview,
-          box: { x: 0.08, y: 0.08, w: 0.84, h: 0.84 },
+          frameIndex: currentFrameIndex + index,
+          annotations: [{ id: `ann_${Date.now()}_${index}`, classId, x: 0.08, y: 0.08, w: 0.84, h: 0.84 }],
         });
         if (index % 5 === 0) await tf.nextFrame();
       }
       imageRef.current = previousImage;
       setSamples(current => [...current, ...imported]);
-      setPrediction(null);
       setStatus(`Imported ${imported.length} image${imported.length === 1 ? '' : 's'} as full-frame object samples. Draw tighter boxes for better accuracy.`);
     } catch (error) {
       imageRef.current = previousImage;
       setStatus(error instanceof Error ? error.message : 'Folder import failed.');
-    } finally {
-      drawCanvas();
     }
   };
 
-  const pointerToBoxPoint = (event: React.PointerEvent<HTMLCanvasElement>) => {
+  const pointerToPoint = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     return {
       x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
@@ -314,90 +369,95 @@ export default function ObjectDetectionDemoPage() {
     };
   };
 
+  const findBoxAt = (point: { x: number; y: number }) => [...currentAnnotations].reverse().find(box => point.x >= box.x && point.x <= box.x + box.w && point.y >= box.y && point.y <= box.y + box.h);
+
   const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!sourceReady) return;
-    const point = pointerToBoxPoint(event);
+    const point = pointerToPoint(event);
+    if (event.shiftKey) {
+      setSelectedBoxId(findBoxAt(point)?.id ?? null);
+      return;
+    }
     dragStartRef.current = point;
-    setCurrentBox({ x: point.x, y: point.y, w: 0.02, h: 0.02 });
+    setDraftBox({ x: point.x, y: point.y, w: 0.02, h: 0.02 });
   };
 
   const onPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const start = dragStartRef.current;
     if (!start) return;
-    const point = pointerToBoxPoint(event);
-    setCurrentBox(clampBox({
-      x: Math.min(start.x, point.x),
-      y: Math.min(start.y, point.y),
-      w: Math.abs(point.x - start.x),
-      h: Math.abs(point.y - start.y),
-    }));
+    const point = pointerToPoint(event);
+    setDraftBox(clampBox({ x: Math.min(start.x, point.x), y: Math.min(start.y, point.y), w: Math.abs(point.x - start.x), h: Math.abs(point.y - start.y) }));
   };
 
   const onPointerUp = () => {
+    if (draftBox && draftBox.w > 0.015 && draftBox.h > 0.015) {
+      const annotation = { ...draftBox, id: `box_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, classId: selectedClassId };
+      updateCurrentAnnotations(items => [...items, annotation]);
+      setSelectedBoxId(annotation.id);
+    }
     dragStartRef.current = null;
+    setDraftBox(null);
   };
 
-  const saveSample = async () => {
-    if (!currentBox) {
-      setStatus('Draw a bounding box before saving a sample.');
+  const saveFrame = async () => {
+    if (!currentAnnotations.length) {
+      setStatus('Draw at least one bounding box before saving this frame.');
       return;
     }
     try {
       const { feature, preview } = await extractFeature();
-      setSamples(current => [...current, {
-        id: `sample_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        classId: selectedClassId,
-        feature,
-        preview,
-        box: currentBox,
-      }]);
-      setStatus('Saved labeled object sample.');
+      setSamples(current => [...current, { id: `frame_${Date.now()}`, feature, preview, annotations: currentAnnotations.map(item => ({ ...item })), frameIndex: currentFrameIndex }]);
+      setStatus(`Saved frame ${currentFrameIndex} with ${currentAnnotations.length} box${currentAnnotations.length === 1 ? '' : 'es'}.`);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Could not save sample.');
+      setStatus(error instanceof Error ? error.message : 'Could not save frame.');
     }
+  };
+
+  const copyToNextFrame = () => {
+    pushUndo();
+    setAnnotationsByFrame(current => {
+      const next = new Map(current);
+      next.set(currentFrameIndex + 1, currentAnnotations.map(item => ({ ...item, id: `box_${Date.now()}_${Math.random().toString(36).slice(2, 6)}` })));
+      return next;
+    });
+    setCurrentFrameIndex(index => index + 1);
+    setSelectedBoxId(null);
   };
 
   const addClass = () => {
     setClasses(current => {
-      const next = {
-        id: `object_${Date.now()}`,
-        name: `Object ${current.length + 1}`,
-        color: COLORS[current.length % COLORS.length],
-      };
+      const next = { id: `object_${Date.now()}`, name: `Object ${current.length + 1}`, color: COLORS[current.length % COLORS.length] };
       setSelectedClassId(next.id);
       return [...current, next];
     });
     modelRef.current?.dispose();
     modelRef.current = null;
-    setPrediction(null);
+    setPredictions([]);
   };
 
   const removeClass = (id: string) => {
-    if (classes.length <= 2) {
-      setSamples(current => current.filter(sample => sample.classId !== id));
-      return;
-    }
+    if (classes.length <= 2) return;
     setClasses(current => current.filter(item => item.id !== id));
-    setSamples(current => current.filter(sample => sample.classId !== id));
+    setSamples(current => current.map(sample => ({ ...sample, annotations: sample.annotations.filter(annotation => annotation.classId !== id) })).filter(sample => sample.annotations.length > 0));
+    updateCurrentAnnotations(items => items.filter(item => item.classId !== id));
     setSelectedClassId(classes.find(item => item.id !== id)?.id ?? initialClasses[0].id);
     modelRef.current?.dispose();
     modelRef.current = null;
-    setPrediction(null);
   };
 
   const train = async () => {
     if (!readyToTrain) {
-      setStatus('Add at least 3 labeled samples for every object class before training.');
+      setStatus('Add at least 3 labeled boxes for every object class before training.');
       return;
     }
     setTraining(true);
     setHistory([]);
     modelRef.current?.dispose();
     const model = buildDetector(classes.length, featureSize, learningRate);
-    const { xs, boxes, labels } = samplesToTensors(samples, classes, featureSize);
+    const { xs, ys } = samplesToTensors(samples, classes, featureSize);
     try {
-      setStatus('Training TensorFlow.js object detector head...');
-      await model.fit(xs, [boxes, labels], {
+      setStatus('Training 5-anchor TensorFlow.js detector head...');
+      await model.fit(xs, ys, {
         epochs,
         batchSize,
         shuffle: true,
@@ -409,16 +469,47 @@ export default function ObjectDetectionDemoPage() {
         },
       });
       modelRef.current = model;
-      setStatus('Training complete. Run inference on the current image or webcam.');
+      setStatus('Training complete. Run multi-object inference on the current frame or webcam.');
     } catch (error) {
       model.dispose();
       setStatus(error instanceof Error ? error.message : 'Training failed.');
     } finally {
       xs.dispose();
-      boxes.dispose();
-      labels.dispose();
+      ys.dispose();
       setTraining(false);
     }
+  };
+
+  const decodePredictions = async (raw: number[]) => {
+    const stride = 5 + classes.length;
+    const candidates: Prediction[] = [];
+    for (let anchorIndex = 0; anchorIndex < ANCHORS.length; anchorIndex++) {
+      const offset = anchorIndex * stride;
+      const objectness = 1 / (1 + Math.exp(-(raw[offset] ?? 0)));
+      const classValues = raw.slice(offset + 5, offset + 5 + classes.length);
+      const exp = classValues.map(value => Math.exp(value));
+      const total = exp.reduce((sum, value) => sum + value, 0) || 1;
+      const probs = exp.map(value => value / total);
+      const classIndex = probs.reduce((best, value, index) => value > probs[best] ? index : best, 0);
+      const score = objectness * (probs[classIndex] ?? 0);
+      if (score < confidenceThreshold) continue;
+      const [aw, ah] = ANCHORS[anchorIndex];
+      const cx = 0.5 + (raw[offset + 1] ?? 0);
+      const cy = 0.5 + (raw[offset + 2] ?? 0);
+      const w = aw * Math.exp(Math.max(-1.5, Math.min(1.5, raw[offset + 3] ?? 0)));
+      const h = ah * Math.exp(Math.max(-1.5, Math.min(1.5, raw[offset + 4] ?? 0)));
+      const cls = classes[classIndex] ?? classes[0];
+      candidates.push({ id: `pred_${anchorIndex}`, classId: cls.id, name: cls.name, color: cls.color, confidence: score, ...clampBox({ x: cx - w / 2, y: cy - h / 2, w, h }) });
+    }
+    if (!candidates.length) return [];
+    const boxes = tf.tensor2d(candidates.map(item => [item.y, item.x, item.y + item.h, item.x + item.w]), [candidates.length, 4]);
+    const scores = tf.tensor1d(candidates.map(item => item.confidence));
+    const selectedTensor = await tf.image.nonMaxSuppressionAsync(boxes, scores, 20, nmsThreshold, confidenceThreshold);
+    const selected = Array.from(await selectedTensor.data());
+    boxes.dispose();
+    scores.dispose();
+    selectedTensor.dispose();
+    return selected.map(index => candidates[index]);
   };
 
   const runInference = useCallback(async () => {
@@ -427,29 +518,21 @@ export default function ObjectDetectionDemoPage() {
       setStatus('Train the detector before running inference.');
       return;
     }
+    const started = performance.now();
     try {
       const { feature } = await extractFeature();
       const input = tf.tensor2d(Array.from(feature), [1, feature.length]);
-      const outputs = model.predict(input) as tf.Tensor[];
-      const boxValues = Array.from(await outputs[0].data());
-      const classValues = Array.from(await outputs[1].data());
+      const output = model.predict(input) as tf.Tensor;
+      const raw = Array.from(await output.data());
       input.dispose();
-      outputs.forEach(output => output.dispose());
-      const classIndex = classValues.reduce((best, value, index) => value > classValues[best] ? index : best, 0);
-      const cls = classes[classIndex] ?? classes[0];
-      const next = {
-        classId: cls.id,
-        name: cls.name,
-        color: cls.color,
-        confidence: classValues[classIndex] ?? 0,
-        box: clampBox({ x: boxValues[0] ?? 0, y: boxValues[1] ?? 0, w: boxValues[2] ?? 0.1, h: boxValues[3] ?? 0.1 }),
-      };
-      setPrediction(next);
-      drawCanvas(currentBox, next);
+      output.dispose();
+      const next = await decodePredictions(raw);
+      setLastLatency(performance.now() - started);
+      setPredictions(next);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Inference failed.');
     }
-  }, [classes, currentBox, drawCanvas]);
+  }, [classes, confidenceThreshold, nmsThreshold]);
 
   const startLiveInference = () => {
     if (liveTimerRef.current) {
@@ -463,15 +546,18 @@ export default function ObjectDetectionDemoPage() {
       return;
     }
     imageRef.current = null;
-    liveTimerRef.current = window.setInterval(() => void runInference(), 240);
-    setStatus('Live webcam inference is running.');
+    liveTimerRef.current = window.setInterval(() => void runInference(), 260);
+    setStatus('Live webcam multi-object inference is running.');
   };
 
   const resetAll = () => {
     setSamples([]);
     setHistory([]);
-    setPrediction(null);
-    setCurrentBox(null);
+    setPredictions([]);
+    setDraftBox(null);
+    setAnnotationsByFrame(new Map([[0, []]]));
+    setCurrentFrameIndex(0);
+    setSelectedBoxId(null);
     modelRef.current?.dispose();
     modelRef.current = null;
     setStatus('Dataset and model cleared.');
@@ -482,54 +568,41 @@ export default function ObjectDetectionDemoPage() {
       setStatus('Train a detector before exporting.');
       return;
     }
-    await modelRef.current.save('downloads://browser-object-detector-head');
-    downloadJson('browser-object-detector-labels.json', {
-      model: 'MobileNet feature extractor + TensorFlow.js box/class detector head',
+    await modelRef.current.save('downloads://browser-multi-object-detector-head');
+    downloadJson('browser-multi-object-detector-labels.json', {
+      model: 'MobileNet feature extractor + TensorFlow.js 5-anchor detector head',
       exportedAt: new Date().toISOString(),
       featureSize,
+      anchors: ANCHORS,
+      thresholds: { confidenceThreshold, nmsThreshold },
       canvas: { width: CANVAS_W, height: CANVAS_H },
-      classes: classes.map((item, index) => ({ index, ...item, samples: sampleCounts[item.id] ?? 0 })),
+      classes: classes.map((item, index) => ({ index, ...item, boxes: sampleCounts[item.id] ?? 0 })),
     });
     setStatus('Detector exported. Keep model files and labels JSON together.');
   };
 
+  const predictionChart = predictions.map(item => ({ name: item.name, confidence: Number(item.confidence.toFixed(3)) }));
+
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4">
-      <PageHeader
-        title="Object Detection Demo"
-        subtitle="Train a browser object detector from webcam frames or imported images by drawing bounding boxes, then run live or file inference with TensorFlow.js."
-        badge="Browser Trainable"
-        category="Computer Vision"
-        icon={<Camera size={22} />}
-      />
+      <PageHeader title="Object Detection Demo" subtitle="Train a browser multi-object detector from webcam frames or image folders with multiple boxes, anchor targets, NMS, and live inference." badge="Browser Trainable" category="Computer Vision" icon={<Camera size={22} />} />
 
-      <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[340px_1fr]">
         <div className="space-y-4">
           <Card title="Inputs" icon={<Video size={14} />}>
             <div className="space-y-2 text-sm">
               <video ref={videoRef} muted playsInline className="hidden" />
               <canvas ref={sourceCanvasRef} className="hidden" />
-              <button onClick={startCamera} className="inline-flex w-full items-center justify-center gap-2 rounded bg-blue-600 px-3 py-2 font-semibold text-white">
-                <Camera size={14} /> {cameraReady ? 'Restart Camera' : 'Start Camera'}
-              </button>
-              <button onClick={() => stopCamera()} disabled={!cameraReady} className="inline-flex w-full items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 font-semibold disabled:opacity-50 dark:border-gray-700">
-                <Video size={14} /> Stop Camera
-              </button>
-              <button onClick={captureFrame} disabled={!cameraReady} className="inline-flex w-full items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 font-semibold disabled:opacity-50 dark:border-gray-700">
-                <Camera size={14} /> Capture Frame for Labeling
-              </button>
+              <button onClick={startCamera} className="inline-flex w-full items-center justify-center gap-2 rounded bg-blue-600 px-3 py-2 font-semibold text-white"><Camera size={14} /> {cameraReady ? 'Restart Camera' : 'Start Camera'}</button>
+              <button onClick={() => stopCamera()} disabled={!cameraReady} className="inline-flex w-full items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 font-semibold disabled:opacity-50 dark:border-gray-700"><Video size={14} /> Stop Camera</button>
+              <button onClick={captureFrame} disabled={!cameraReady} className="inline-flex w-full items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 font-semibold disabled:opacity-50 dark:border-gray-700"><Camera size={14} /> Capture Frame</button>
               <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 font-semibold hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800">
                 <FileImage size={14} /> Load Image File
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={event => {
-                    const file = event.currentTarget.files?.[0];
-                    if (file) void importImage(file);
-                    event.currentTarget.value = '';
-                  }}
-                />
+                <input type="file" accept="image/*" className="hidden" onChange={event => {
+                  const file = event.currentTarget.files?.[0];
+                  if (file) void importImage(file);
+                  event.currentTarget.value = '';
+                }} />
               </label>
             </div>
           </Card>
@@ -551,20 +624,10 @@ export default function ObjectDetectionDemoPage() {
                     </label>
                     <label className="inline-flex cursor-pointer items-center justify-center gap-1 rounded border border-gray-200 px-2 py-1 text-xs font-semibold dark:border-gray-700">
                       <FolderOpen size={12} /> Folder
-                      <input
-                        ref={element => {
-                          element?.setAttribute('webkitdirectory', '');
-                          element?.setAttribute('directory', '');
-                        }}
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className="hidden"
-                        onChange={event => { void importFilesAsSamples(item.id, event.currentTarget.files); event.currentTarget.value = ''; }}
-                      />
+                      <input ref={element => { element?.setAttribute('webkitdirectory', ''); element?.setAttribute('directory', ''); }} type="file" accept="image/*" multiple className="hidden" onChange={event => { void importFilesAsSamples(item.id, event.currentTarget.files); event.currentTarget.value = ''; }} />
                     </label>
                   </div>
-                  <p className="mt-1 text-xs font-semibold text-gray-500">{sampleCounts[item.id] ?? 0} samples</p>
+                  <p className="mt-1 text-xs font-semibold text-gray-500">{sampleCounts[item.id] ?? 0} boxes</p>
                 </div>
               ))}
             </div>
@@ -582,71 +645,100 @@ export default function ObjectDetectionDemoPage() {
               <button disabled={!modelRef.current} onClick={exportModel} className="inline-flex w-full items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 font-semibold disabled:opacity-50 dark:border-gray-700"><Download size={14} /> Export Model</button>
             </div>
           </Card>
-
-          <MetricsPanel title="Detector Metrics" metrics={[
-            { label: 'Classes', value: classes.length, format: 'number', color: 'blue' },
-            { label: 'Samples', value: samples.length, format: 'number', color: 'green' },
-            { label: 'Loss', value: latest?.loss ?? 0, format: 'fixed4', color: 'blue' },
-            { label: 'Confidence', value: prediction?.confidence ?? 0, format: 'percent', color: 'green' },
-          ]} />
         </div>
 
         <div className="space-y-4">
-          <Card title="Label and Infer">
-            <div className="space-y-3">
-              <canvas
-                ref={canvasRef}
-                onPointerDown={onPointerDown}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
-                onPointerCancel={onPointerUp}
-                className="aspect-video w-full cursor-crosshair rounded-lg border border-gray-200 bg-gray-950 dark:border-gray-700"
-              />
-              <div className="flex flex-wrap gap-2">
-                <button onClick={saveSample} disabled={!currentBox || !sourceReady} className="inline-flex items-center gap-2 rounded bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"><Save size={14} /> Save Box Sample</button>
-                <button onClick={() => void runInference()} disabled={!modelRef.current} className="inline-flex items-center gap-2 rounded border border-gray-200 px-3 py-2 text-sm font-semibold disabled:opacity-50 dark:border-gray-700"><Play size={14} /> Infer Current</button>
-                <button onClick={startLiveInference} disabled={!modelRef.current} className="inline-flex items-center gap-2 rounded border border-gray-200 px-3 py-2 text-sm font-semibold disabled:opacity-50 dark:border-gray-700"><Video size={14} /> Live Webcam</button>
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Draw one tight object box per sample. Folder imports use full-frame boxes, useful when each image is already cropped around the object.</p>
-            </div>
-          </Card>
-
-          <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-            <Card title="Prediction">
-              {prediction ? (
-                <div className="space-y-3">
-                  <p className="text-sm text-gray-600 dark:text-gray-300">Detected <b>{prediction.name}</b> at <b>{(prediction.confidence * 100).toFixed(1)}%</b></p>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={predictionRows}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                      <YAxis domain={[0, 1]} tickFormatter={value => `${Math.round(Number(value) * 100)}%`} />
-                      <Tooltip formatter={(value: number) => `${(value * 100).toFixed(1)}%`} />
-                      <Bar dataKey="confidence" radius={[4, 4, 0, 0]}>
-                        {predictionRows.map(item => <Cell key={item.name} fill={item.color} />)}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+          <div className="grid gap-4 xl:grid-cols-[1fr_300px]">
+            <Card title="Label and Infer" subtitle={`Frame ${currentFrameIndex} · shift-click selects a box`}>
+              <div className="space-y-3">
+                <canvas ref={canvasRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} className="aspect-video w-full cursor-crosshair rounded-lg border border-gray-200 bg-gray-950 dark:border-gray-700" />
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={saveFrame} disabled={!currentAnnotations.length || !sourceReady} className="inline-flex items-center gap-2 rounded bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"><Save size={14} /> Save Frame</button>
+                  <button onClick={copyToNextFrame} disabled={!currentAnnotations.length} className="inline-flex items-center gap-2 rounded border border-gray-200 px-3 py-2 text-sm font-semibold disabled:opacity-50 dark:border-gray-700"><Copy size={14} /> Copy to Next</button>
+                  <button onClick={() => void runInference()} disabled={!modelRef.current} className="inline-flex items-center gap-2 rounded border border-gray-200 px-3 py-2 text-sm font-semibold disabled:opacity-50 dark:border-gray-700"><Play size={14} /> Infer Current</button>
+                  <button onClick={startLiveInference} disabled={!modelRef.current} className="inline-flex items-center gap-2 rounded border border-gray-200 px-3 py-2 text-sm font-semibold disabled:opacity-50 dark:border-gray-700"><Video size={14} /> Live Webcam</button>
                 </div>
-              ) : (
-                <div className="rounded-lg border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">Train and run inference to see a detected box.</div>
-              )}
+                <p className="text-xs text-gray-500 dark:text-gray-400">Draw repeatedly to add multiple boxes. Shift-click a box to select it, Delete removes it, Ctrl+Z restores the previous annotation state.</p>
+              </div>
             </Card>
 
-            <Card title="Samples">
-              <div className="grid grid-cols-3 gap-2">
-                {samples.slice(-12).map(sample => {
-                  const cls = classes.find(item => item.id === sample.classId);
-                  return <img key={sample.id} src={sample.preview} title={cls?.name} alt="" className="aspect-video rounded object-cover" />;
+            <Card title="Frame Boxes">
+              <div className="space-y-2">
+                {currentAnnotations.map(annotation => {
+                  const cls = classes.find(item => item.id === annotation.classId) ?? classes[0];
+                  return (
+                    <button key={annotation.id} onClick={() => setSelectedBoxId(annotation.id)} className={`flex w-full items-center gap-2 rounded border px-2 py-2 text-left text-xs ${selectedBoxId === annotation.id ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' : 'border-gray-200 dark:border-gray-700'}`}>
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: cls.color }} />
+                      <span className="min-w-0 flex-1"><b>{cls.name}</b> x:{annotation.x.toFixed(2)} y:{annotation.y.toFixed(2)}</span>
+                      <Trash2 size={12} onClick={event => {
+                        event.stopPropagation();
+                        updateCurrentAnnotations(items => items.filter(item => item.id !== annotation.id));
+                      }} />
+                    </button>
+                  );
                 })}
-                {samples.length === 0 && <p className="col-span-3 text-sm text-gray-500">No labeled samples yet.</p>}
+                {!currentAnnotations.length && <p className="rounded border border-dashed border-gray-200 p-4 text-center text-sm text-gray-500 dark:border-gray-700">No boxes on this frame.</p>}
+              </div>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            <MetricsPanel title="Detector Metrics" metrics={[
+              { label: 'Classes', value: classes.length, format: 'number', color: 'blue' },
+              { label: 'Saved Frames', value: samples.length, format: 'number', color: 'green' },
+              { label: 'Objects', value: predictions.length, format: 'number', color: 'green' },
+              { label: 'Latency', value: `${Math.round(lastLatency)} ms`, color: 'blue' },
+            ]} />
+
+            <Card title="Post Processing">
+              <div className="space-y-3 text-sm">
+                <label className="block">Confidence: <b>{confidenceThreshold.toFixed(2)}</b><input type="range" min={0.3} max={0.8} step={0.01} value={confidenceThreshold} onChange={event => setConfidenceThreshold(Number(event.target.value))} className="w-full accent-purple-600" /></label>
+                <label className="block">NMS IoU: <b>{nmsThreshold.toFixed(2)}</b><input type="range" min={0.3} max={0.7} step={0.01} value={nmsThreshold} onChange={event => setNmsThreshold(Number(event.target.value))} className="w-full accent-purple-600" /></label>
+                <p className="rounded bg-gray-50 p-2 text-xs dark:bg-gray-900">{predictions.length} objects · {Math.round(lastLatency)}ms</p>
+              </div>
+            </Card>
+
+            <Card title="Training Loss">
+              {history.length ? (
+                <ResponsiveContainer width="100%" height={180}>
+                  <LineChart data={history}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="epoch" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <Tooltip />
+                    <Line dataKey="loss" stroke="#2563eb" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : <p className="text-sm text-gray-500">Loss appears during training.</p>}
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+            <Card title="Prediction Scores">
+              {predictions.length ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={predictionChart}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis domain={[0, 1]} tickFormatter={value => `${Math.round(Number(value) * 100)}%`} />
+                    <Tooltip formatter={(value: number) => `${(value * 100).toFixed(1)}%`} />
+                    <Bar dataKey="confidence" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : <div className="rounded-lg border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500 dark:border-gray-700">Run inference to see all surviving boxes after NMS.</div>}
+            </Card>
+
+            <Card title="Saved Frames">
+              <div className="grid grid-cols-3 gap-2">
+                {samples.slice(-12).map(sample => <img key={sample.id} src={sample.preview} title={`${sample.annotations.length} boxes`} alt="" className="aspect-video rounded object-cover" />)}
+                {samples.length === 0 && <p className="col-span-3 text-sm text-gray-500">No saved frames yet.</p>}
               </div>
             </Card>
           </div>
 
           <InfoBox type={readyToTrain ? 'success' : 'info'} title="Runtime Status">{status}</InfoBox>
-          <InfoBox type="success" title="Real TensorFlow.js Detector">
-            This page trains a browser detector head with two outputs: normalized bounding box coordinates and object class probabilities. MobileNet supplies image features; your drawn boxes and classes supply the supervised labels.
+          <InfoBox type="success" title="5-Anchor Detector">
+            Each saved frame trains five anchor predictions. Inference decodes objectness, box offsets, and class probabilities, then applies TensorFlow.js non-max suppression so multiple objects can survive on the same image.
           </InfoBox>
         </div>
       </div>

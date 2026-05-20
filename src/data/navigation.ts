@@ -89,6 +89,9 @@ export const navigationData: NavCategory[] = [
       { label: 'Transformer Attention', route: '/ml/deep-learning/transformer-attention', badge: 'Advanced' },
       { label: 'Multi-Head Attention', route: '/ml/deep-learning/multi-head-attention', badge: 'Advanced' },
       { label: 'Backpropagation Visualizer', route: '/ml/deep-learning/backpropagation-visualizer', badge: 'Educational' },
+      { label: 'Few-Shot Learning', route: '/ml/deep-learning/few-shot-learning', badge: 'Browser Inference' },
+      { label: 'Network Builder', route: '/ml/deep-learning/network-builder', badge: 'Browser Trainable' },
+      { label: 'Transfer Learning', route: '/ml/deep-learning/transfer-learning', badge: 'Browser Trainable' },
     ],
   },
   {
@@ -153,6 +156,7 @@ export const navigationData: NavCategory[] = [
       { label: 'K-Means Image Segmentation', route: '/ml/computer-vision/kmeans-image-segmentation', badge: 'Intermediate' },
       { label: 'Edge Detection', route: '/ml/computer-vision/edge-detection', badge: 'Beginner' },
       { label: 'Object Detection', route: '/ml/computer-vision/object-detection-demo', badge: 'Browser Trainable' },
+      { label: 'Grad-CAM', route: '/ml/computer-vision/grad-cam', badge: 'Intermediate' },
     ],
   },
   {
@@ -220,6 +224,8 @@ export const navigationData: NavCategory[] = [
       { label: 'ONNX Runtime Web Demo', route: '/ml/deployment/onnx-runtime-demo', badge: 'Browser Inference' },
       { label: 'TensorFlow.js Training', route: '/ml/deployment/tensorflowjs-training', badge: 'Browser Trainable' },
       { label: 'Model Export', route: '/ml/deployment/model-export', badge: 'Intermediate' },
+      { label: 'Export Hub', route: '/ml/deployment/export-hub', badge: 'Intermediate' },
+      { label: 'Model Card', route: '/ml/deployment/model-card', badge: 'Intermediate' },
     ],
   },
   {
@@ -227,6 +233,12 @@ export const navigationData: NavCategory[] = [
     icon: 'FlaskConical',
     items: [
       { label: 'Train Your Model', route: '/ml/lab/train-your-model', badge: 'Browser Trainable' },
+      { label: 'Image Annotation', route: '/ml/lab/image-annotation', badge: 'Browser Trainable' },
+      { label: 'Data Augmentation', route: '/ml/lab/data-augmentation', badge: 'Browser Trainable' },
+      { label: 'Model Comparison', route: '/ml/lab/model-comparison', badge: 'Browser Trainable' },
+      { label: 'Batch Inference', route: '/ml/lab/batch-inference', badge: 'Browser Inference' },
+      { label: 'Active Learning', route: '/ml/lab/active-learning', badge: 'Browser Trainable' },
+      { label: 'Performance Dashboard', route: '/ml/lab/performance-dashboard', badge: 'Browser Inference' },
       { label: 'Architecture Flow Lab', route: '/ml/lab/architecture-flow', badge: 'Educational' },
       { label: 'Algorithm Comparison Lab', route: '/ml/lab/algorithm-comparison', badge: 'Advanced' },
       { label: 'Hyperparameter Tuning Lab', route: '/ml/lab/hyperparameter-tuning', badge: 'Advanced' },
