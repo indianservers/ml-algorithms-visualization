@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, BarChart3, Check, Copy, Database, Download, Grid3X3, Info, LineChart, ShieldCheck, Table2, Upload } from 'lucide-react';
+import { AlertTriangle, BarChart3, Check, Copy, Database, Download, Grid3X3, Info, LineChart, Save, ShieldCheck, Table2, Upload } from 'lucide-react';
 import {
   getAlgorithmDatasetSuggestions,
   loadAlgorithmDataset,
@@ -9,6 +9,7 @@ import type { LoadedAlgorithmDataset } from '../../data/algorithmDatasets';
 import { checkDatasetCompatibility } from '../../lib/preprocessing/datasetCompatibility';
 import { loadDatasets, type SavedDataset } from '../../stores/experimentStore';
 import { Card } from '../common/Card';
+import { EditableDataGrid } from './EditableDataGrid';
 
 const ACTIVE_DATASETS_KEY = 'mlSuite.activeAlgorithmDatasets';
 
@@ -30,6 +31,24 @@ function persistLoadedDataset(route: string, dataset: LoadedAlgorithmDataset) {
   current[route] = dataset;
   localStorage.setItem(ACTIVE_DATASETS_KEY, JSON.stringify(current));
   window.dispatchEvent(new CustomEvent('ml:algorithm-dataset-loaded', { detail: { route, dataset } }));
+}
+
+function loadActiveDataset(route: string): LoadedAlgorithmDataset | null {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const current = JSON.parse(localStorage.getItem(ACTIVE_DATASETS_KEY) ?? '{}') as Record<string, LoadedAlgorithmDataset>;
+    return current[route] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function cloneLoadedDataset(dataset: LoadedAlgorithmDataset): LoadedAlgorithmDataset {
+  return {
+    ...dataset,
+    columns: [...dataset.columns],
+    data: dataset.data.map(row => ({ ...row })),
+  };
 }
 
 function savedToLoadedDataset(dataset: SavedDataset): LoadedAlgorithmDataset {
@@ -54,6 +73,7 @@ function downloadCSV(dataset: LoadedAlgorithmDataset) {
 
 export function AlgorithmDatasetLoader({ route, category }: { route: string; category: string }) {
   const suggestions = useMemo(() => getAlgorithmDatasetSuggestions(route, category), [route, category]);
+  const [activeDataset, setActiveDataset] = useState<LoadedAlgorithmDataset | null>(() => loadActiveDataset(route));
   const [selectedId, setSelectedId] = useState(suggestions[0]?.id ?? '');
   const [savedDatasets, setSavedDatasets] = useState<SavedDataset[]>([]);
   const [savedSearch, setSavedSearch] = useState('');
@@ -63,11 +83,13 @@ export function AlgorithmDatasetLoader({ route, category }: { route: string; cat
     if (selectedSaved) return savedToLoadedDataset(selectedSaved);
     return selected ? loadAlgorithmDataset(selected) : null;
   }, [selected, selectedSaved]);
+  const [editableDataset, setEditableDataset] = useState<LoadedAlgorithmDataset | null>(() => activeDataset ? cloneLoadedDataset(activeDataset) : null);
+  const workingDataset = editableDataset ?? activeDataset ?? loaded;
   const compatibility = useMemo(
-    () => loaded ? checkDatasetCompatibility(loaded, route, category) : null,
-    [category, loaded, route],
+    () => workingDataset ? checkDatasetCompatibility(workingDataset, route, category) : null,
+    [category, route, workingDataset],
   );
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(activeDataset?.id ?? null);
   const [copied, setCopied] = useState(false);
   const filteredSavedDatasets = savedDatasets.filter(dataset => {
     const text = `${dataset.name} ${dataset.tags?.join(' ') ?? ''} ${dataset.columns.join(' ')}`.toLowerCase();
@@ -84,7 +106,14 @@ export function AlgorithmDatasetLoader({ route, category }: { route: string; cat
     };
   }, []);
 
-  if (!loaded) {
+  useEffect(() => {
+    const active = loadActiveDataset(route);
+    setActiveDataset(active);
+    setActiveId(active?.id ?? null);
+    setEditableDataset(active ? cloneLoadedDataset(active) : (loaded ? cloneLoadedDataset(loaded) : null));
+  }, [loaded, route]);
+
+  if (!workingDataset) {
     return (
       <Card title="No dataset loaded" icon={<Database size={14} />}>
         <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
@@ -97,30 +126,57 @@ export function AlgorithmDatasetLoader({ route, category }: { route: string; cat
     );
   }
 
-  const previewRows = loaded.data.slice(0, 4);
+  const previewRows = workingDataset.data.slice(0, 4);
   const compatibilityItems = compatibility ? [
     ...compatibility.errors.map(message => ({ message, tone: 'error' as const })),
     ...compatibility.warnings.map(message => ({ message, tone: 'warning' as const })),
   ] : [];
   const handleLoad = () => {
-    persistLoadedDataset(route, loaded);
-    setActiveId(loaded.id);
+    persistLoadedDataset(route, workingDataset);
+    setActiveDataset(cloneLoadedDataset(workingDataset));
+    setActiveId(workingDataset.id);
   };
   const handleSavedDatasetTap = (dataset: SavedDataset) => {
     const next = savedToLoadedDataset(dataset);
     persistLoadedDataset(route, next);
+    setActiveDataset(cloneLoadedDataset(next));
+    setEditableDataset(cloneLoadedDataset(next));
     setSelectedId(`saved:${dataset.id}`);
     setActiveId(next.id);
   };
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(toCSV(loaded));
+    await navigator.clipboard.writeText(toCSV(workingDataset));
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1400);
+  };
+  const handleGridRowsChange = (data: Record<string, unknown>[]) => {
+    setEditableDataset(current => current ? { ...current, data } : null);
+  };
+  const handleGridColumnsChange = (columns: string[]) => {
+    setEditableDataset(current => current ? {
+      ...current,
+      columns,
+      target: current.target && columns.includes(current.target) ? current.target : columns.at(-1),
+    } : null);
+  };
+  const handleSaveGridEdits = () => {
+    if (!editableDataset) return;
+    const next = {
+      ...editableDataset,
+      id: editableDataset.id.startsWith('edited:') ? editableDataset.id : `edited:${editableDataset.id}`,
+      name: editableDataset.name.endsWith(' (edited)') ? editableDataset.name : `${editableDataset.name} (edited)`,
+      description: `${editableDataset.data.length} edited rows for this algorithm route.`,
+      kind: 'upload' as const,
+    };
+    setEditableDataset(cloneLoadedDataset(next));
+    persistLoadedDataset(route, next);
+    setActiveDataset(cloneLoadedDataset(next));
+    setActiveId(next.id);
   };
 
   return (
     <Card title="Load Dataset" icon={<Database size={14} />} actions={
-      activeId === loaded.id ? (
+      activeId === workingDataset.id ? (
         <span className="flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200">
           <Check size={13} /> Loaded
         </span>
@@ -162,9 +218,10 @@ export function AlgorithmDatasetLoader({ route, category }: { route: string; cat
             </div>
           )}
           <select
-            value={selectedSaved ? `saved:${selectedSaved.id}` : loaded.id}
+            value={selectedSaved ? `saved:${selectedSaved.id}` : (loaded?.id ?? workingDataset.id)}
             onChange={event => {
               setSelectedId(event.target.value);
+              setActiveDataset(null);
               setActiveId(null);
             }}
             className="min-h-10 w-full rounded border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
@@ -182,7 +239,7 @@ export function AlgorithmDatasetLoader({ route, category }: { route: string; cat
             ))}
             </optgroup>
           </select>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{loaded.description}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{workingDataset.description}</p>
           {compatibility && (
             <div className={`rounded-lg border p-3 text-xs ${
               compatibility.errors.length > 0
@@ -225,21 +282,21 @@ export function AlgorithmDatasetLoader({ route, category }: { route: string; cat
           <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
             <div className="rounded bg-gray-50 p-2 dark:bg-gray-900">
               <p className="text-gray-500">Rows</p>
-              <p className="font-mono font-bold">{loaded.data.length}</p>
+              <p className="font-mono font-bold">{workingDataset.data.length}</p>
             </div>
             <div className="rounded bg-gray-50 p-2 dark:bg-gray-900">
               <p className="text-gray-500">Columns</p>
-              <p className="font-mono font-bold">{loaded.columns.length}</p>
+              <p className="font-mono font-bold">{workingDataset.columns.length}</p>
             </div>
             <div className="rounded bg-gray-50 p-2 dark:bg-gray-900">
               <p className="text-gray-500">Target</p>
-              <p className="truncate font-mono font-bold">{loaded.target ?? '-'}</p>
+              <p className="truncate font-mono font-bold">{workingDataset.target ?? '-'}</p>
             </div>
           </div>
           <div className="rounded bg-gray-50 p-2 text-xs dark:bg-gray-900">
             <p className="font-bold text-gray-700 dark:text-gray-200">Suggested schema</p>
-            <p className="mt-1 text-gray-500">Target: <span className="font-mono">{loaded.target ?? loaded.columns.at(-1) ?? '-'}</span></p>
-            <p className="mt-1 text-gray-500">Features: <span className="font-mono">{loaded.columns.filter(column => column !== (loaded.target ?? loaded.columns.at(-1))).slice(0, 5).join(', ') || '-'}</span></p>
+            <p className="mt-1 text-gray-500">Target: <span className="font-mono">{workingDataset.target ?? workingDataset.columns.at(-1) ?? '-'}</span></p>
+            <p className="mt-1 text-gray-500">Features: <span className="font-mono">{workingDataset.columns.filter(column => column !== (workingDataset.target ?? workingDataset.columns.at(-1))).slice(0, 5).join(', ') || '-'}</span></p>
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <button onClick={handleLoad} className="flex min-h-10 items-center justify-center gap-2 rounded bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">
@@ -248,11 +305,11 @@ export function AlgorithmDatasetLoader({ route, category }: { route: string; cat
             <button onClick={handleCopy} className="flex min-h-10 items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 text-xs dark:border-gray-700">
               <Copy size={13} /> {copied ? 'Copied' : 'Copy'}
             </button>
-            <button onClick={() => downloadCSV(loaded)} className="flex min-h-10 items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 text-xs dark:border-gray-700">
+            <button onClick={() => downloadCSV(workingDataset)} className="flex min-h-10 items-center justify-center gap-2 rounded border border-gray-200 px-3 py-2 text-xs dark:border-gray-700">
               <Download size={13} /> CSV
             </button>
           </div>
-          {activeId === loaded.id && (
+          {activeId === workingDataset.id && (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 dark:border-emerald-900 dark:bg-emerald-950/30">
               <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-200">Next steps</p>
               <div className="grid grid-cols-2 gap-2">
@@ -271,21 +328,40 @@ export function AlgorithmDatasetLoader({ route, category }: { route: string; cat
             </div>
           )}
         </div>
-        <div className="overflow-auto rounded border border-gray-200 dark:border-gray-700">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-gray-900">
-                {loaded.columns.map(column => <th key={column} className="whitespace-nowrap p-2 text-left font-semibold">{column}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {previewRows.map((row, index) => (
-                <tr key={index} className="border-t border-gray-100 dark:border-gray-800">
-                  {loaded.columns.map(column => <td key={column} className="whitespace-nowrap p-2 font-mono">{String(row[column] ?? '')}</td>)}
+        <div className="space-y-3">
+          <div className="overflow-auto rounded border border-gray-200 dark:border-gray-700">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-gray-50 dark:bg-gray-900">
+                  {workingDataset.columns.map(column => <th key={column} className="whitespace-nowrap p-2 text-left font-semibold">{column}</th>)}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {previewRows.map((row, index) => (
+                  <tr key={index} className="border-t border-gray-100 dark:border-gray-800">
+                    {workingDataset.columns.map(column => <td key={column} className="whitespace-nowrap p-2 font-mono">{String(row[column] ?? '')}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {editableDataset && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Editable Data Grid</p>
+                <button onClick={handleSaveGridEdits} className="inline-flex min-h-10 items-center gap-2 rounded bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700">
+                  <Save size={13} /> Apply Edits
+                </button>
+              </div>
+              <EditableDataGrid
+                columns={editableDataset.columns}
+                rows={editableDataset.data}
+                maxRows={Math.min(24, Math.max(12, editableDataset.data.length))}
+                onColumnsChange={handleGridColumnsChange}
+                onChange={handleGridRowsChange}
+              />
+            </div>
+          )}
         </div>
       </div>
     </Card>
