@@ -2,775 +2,793 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/documentation</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/dataset-library</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/sitemap</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/implementation-matrix</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/simple-linear-regression</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/multiple-linear-regression</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/polynomial-regression</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/ridge-regression</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/lasso-regression</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/elastic-net-regression</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/decision-tree-regression</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/random-forest-regression</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/gradient-boosting-regression</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/support-vector-regression</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/logistic-regression</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/multinomial-logistic-regression</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/knn-classification</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/naive-bayes</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/decision-tree-classification</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/random-forest-classification</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/svm-classification</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/gradient-boosting-classification</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/adaboost-classification</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/supervised/xgboost-concept</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/clustering/k-means</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/clustering/k-medoids</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/clustering/hierarchical-clustering</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/clustering/dbscan</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/clustering/mean-shift</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/clustering/gaussian-mixture-model</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/clustering/spectral-clustering</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/clustering/optics</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/dimensionality-reduction/pca</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/dimensionality-reduction/kernel-pca</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/dimensionality-reduction/tsne</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/dimensionality-reduction/umap-concept</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/dimensionality-reduction/lda</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/dimensionality-reduction/autoencoder</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deep-learning/perceptron</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deep-learning/mlp</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deep-learning/nn-playground</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deep-learning/cnn</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deep-learning/convolution-visualizer</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deep-learning/rnn</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deep-learning/lstm</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deep-learning/gru</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deep-learning/transformer-attention</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deep-learning/multi-head-attention</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deep-learning/backpropagation-visualizer</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deep-learning/few-shot-learning</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deep-learning/network-builder</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deep-learning/transfer-learning</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/evaluation/train-test-split</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/evaluation/cross-validation</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/evaluation/confusion-matrix</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/evaluation/roc-auc</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/evaluation/precision-recall-curve</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/evaluation/regression-metrics</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/evaluation/bias-variance-tradeoff</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/preprocessing/missing-values</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/preprocessing/scaling-normalization</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/preprocessing/categorical-encoding</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/preprocessing/outlier-detection</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/preprocessing/feature-selection</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/preprocessing/polynomial-features</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/time-series/moving-average</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/time-series/exponential-smoothing</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/time-series/holt-winters</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/time-series/arima-concept</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/time-series/anomaly-detection</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/time-series/rnn-forecasting</loc>
+    <lastmod>2026-06-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/time-series/lstm-forecasting</loc>
+    <lastmod>2026-06-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/time-series/gru-forecasting</loc>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/nlp/bag-of-words</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/nlp/tf-idf</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/nlp/text-classification</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/nlp/word-embedding-concept</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/nlp/sentiment-analysis</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/nlp/naive-bayes-spam</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/nlp/audio-classification</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/computer-vision/image-classification</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/computer-vision/audio-classification</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/computer-vision/hand-gesture-recognition</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/computer-vision/pose-detection</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/computer-vision/person-segmentation</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/computer-vision/cnn-filter-explorer</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/computer-vision/kmeans-image-segmentation</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/computer-vision/edge-detection</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/computer-vision/object-detection-demo</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/computer-vision/grad-cam</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/recommendation/user-based-cf</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/recommendation/item-based-cf</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/recommendation/matrix-factorization</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/recommendation/content-based</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/reinforcement-learning/multi-armed-bandit</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/reinforcement-learning/q-learning-grid-world</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/reinforcement-learning/markov-decision-process</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/explainability/feature-importance</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/explainability/partial-dependence-plot</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/explainability/shap-concept</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/explainability/lime-concept</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/optimization/gradient-descent</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/optimization/sgd</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/optimization/momentum</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/optimization/adam</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/ensemble/bagging</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/ensemble/boosting</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/ensemble/stacking</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/probabilistic/bayesian-linear-regression</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/probabilistic/gaussian-process-regression</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/probabilistic/hidden-markov-model</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deployment/browser-model-loader</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deployment/onnx-runtime-demo</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deployment/tensorflowjs-training</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deployment/model-export</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deployment/export-hub</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/deployment/model-card</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/lab/train-your-model</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/lab/image-annotation</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/lab/data-augmentation</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/lab/model-comparison</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/lab/batch-inference</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/lab/active-learning</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/lab/performance-dashboard</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/lab/architecture-flow</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/lab/algorithm-comparison</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/lab/hyperparameter-tuning</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/lab/automl-concept</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/lab/saved-experiments</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/lab/dataset-manager</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.aimersociety.com/MachineLearningAlgorithms/ml/lab/report-builder</loc>
-    <lastmod>2026-05-27</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>

@@ -90,6 +90,9 @@ const ExponentialSmoothingPage = lazy(() => import('../pages/algorithms/timeSeri
 const HoltWintersPage = lazy(() => import('../pages/algorithms/timeSeries/HoltWintersPage'));
 const ARIMAConceptPage = lazy(() => import('../pages/algorithms/timeSeries/ARIMAConceptPage'));
 const TimeSeriesAnomalyDetectionPage = lazy(() => import('../pages/algorithms/timeSeries/TimeSeriesAnomalyDetectionPage'));
+const RNNForecastingPage = lazy(() => import('../pages/algorithms/timeSeries/RNNForecastingPage'));
+const LSTMForecastingPage = lazy(() => import('../pages/algorithms/timeSeries/LSTMForecastingPage'));
+const GRUForecastingPage = lazy(() => import('../pages/algorithms/timeSeries/GRUForecastingPage'));
 
 // NLP
 const BagOfWordsPage = lazy(() => import('../pages/algorithms/nlp/BagOfWordsPage'));
@@ -252,6 +255,9 @@ export const router = createBrowserRouter([
       { path: 'ml/time-series/holt-winters', element: <HoltWintersPage /> },
       { path: 'ml/time-series/arima-concept', element: <ARIMAConceptPage /> },
       { path: 'ml/time-series/anomaly-detection', element: <TimeSeriesAnomalyDetectionPage /> },
+      { path: 'ml/time-series/rnn-forecasting', element: <RNNForecastingPage /> },
+      { path: 'ml/time-series/lstm-forecasting', element: <LSTMForecastingPage /> },
+      { path: 'ml/time-series/gru-forecasting', element: <GRUForecastingPage /> },
       // NLP
       { path: 'ml/nlp/bag-of-words', element: <BagOfWordsPage /> },
       { path: 'ml/nlp/tf-idf', element: <TFIDFPage /> },

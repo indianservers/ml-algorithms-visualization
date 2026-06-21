@@ -128,6 +128,9 @@ export const navigationData: NavCategory[] = [
       { label: 'Holt-Winters', route: '/ml/time-series/holt-winters', badge: 'Intermediate' },
       { label: 'ARIMA', route: '/ml/time-series/arima-concept', badge: 'Advanced' },
       { label: 'Anomaly Detection', route: '/ml/time-series/anomaly-detection', badge: 'Intermediate' },
+      { label: 'RNN Forecasting', route: '/ml/time-series/rnn-forecasting', badge: 'Browser Trainable' },
+      { label: 'LSTM Forecasting', route: '/ml/time-series/lstm-forecasting', badge: 'Browser Trainable' },
+      { label: 'GRU Forecasting', route: '/ml/time-series/gru-forecasting', badge: 'Browser Trainable' },
     ],
   },
   {

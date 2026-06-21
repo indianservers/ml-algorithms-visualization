@@ -389,6 +389,70 @@ export const sensorAnomalyDataset: Dataset = {
   }),
 };
 
+export const recurrentTrafficDataset: Dataset = {
+  id: 'rnn-web-traffic',
+  name: 'Hourly Web Traffic Sequence',
+  description: 'Hourly visits with daily cycles, business-hour lift, and short conversion response for RNN forecasting.',
+  type: 'timeSeries',
+  columns: ['hour', 'visits', 'conversions'],
+  data: Array.from({ length: 168 }, (_, index) => {
+    const hourOfDay = index % 24;
+    const day = Math.floor(index / 24);
+    const businessHours = hourOfDay >= 9 && hourOfDay <= 18 ? 180 : 30;
+    const eveningPulse = hourOfDay >= 20 && hourOfDay <= 22 ? 75 : 0;
+    const weekend = day >= 5 ? -85 : 0;
+    const dailyWave = Math.sin((hourOfDay / 24) * Math.PI * 2 - 1.2) * 95;
+    const visits = 420 + businessHours + eveningPulse + weekend + dailyWave + Math.sin(index * 1.7) * 18;
+    return {
+      hour: `H${index + 1}`,
+      visits: Number(Math.max(80, visits).toFixed(0)),
+      conversions: Number(Math.max(8, visits * (0.045 + Math.sin(index / 18) * 0.006)).toFixed(0)),
+    };
+  }),
+};
+
+export const lstmRetailDemandDataset: Dataset = {
+  id: 'lstm-retail-demand',
+  name: 'Weekly Retail Demand Sequence',
+  description: 'Multi-season weekly order demand with promotions and slow trend for LSTM memory demonstrations.',
+  type: 'timeSeries',
+  columns: ['week', 'orders', 'promo_index', 'inventory_gap'],
+  data: Array.from({ length: 156 }, (_, index) => {
+    const annualSeason = Math.sin((index / 52) * Math.PI * 2) * 260;
+    const quarterlySeason = Math.cos((index / 13) * Math.PI * 2) * 90;
+    const promo = index % 11 === 0 || index % 17 === 0 ? 1 : index % 7 === 0 ? 0.45 : 0;
+    const trend = index * 4.2;
+    const orders = 1450 + trend + annualSeason + quarterlySeason + promo * 340 + Math.sin(index * 0.91) * 42;
+    return {
+      week: `W${index + 1}`,
+      orders: Number(orders.toFixed(0)),
+      promo_index: Number(promo.toFixed(2)),
+      inventory_gap: Number(Math.max(0, 24 + Math.sin(index / 8) * 18 - promo * 9).toFixed(1)),
+    };
+  }),
+};
+
+export const gruMachineLoadDataset: Dataset = {
+  id: 'gru-machine-load',
+  name: 'Machine Load Sensor Sequence',
+  description: 'Minute-level machine load with shift cycles and temperature coupling for fast GRU forecasting.',
+  type: 'timeSeries',
+  columns: ['minute', 'load_kw', 'temperature_c', 'shift'],
+  data: Array.from({ length: 180 }, (_, index) => {
+    const shift = Math.floor((index % 72) / 24);
+    const shiftLoad = [18, 42, 28][shift];
+    const cycle = Math.sin(index / 5) * 8 + Math.cos(index / 17) * 5;
+    const ramp = (index % 24) * 0.45;
+    const load = 95 + shiftLoad + cycle + ramp + Math.sin(index * 1.31) * 2.4;
+    return {
+      minute: `M${index + 1}`,
+      load_kw: Number(load.toFixed(2)),
+      temperature_c: Number((52 + load * 0.08 + Math.sin(index / 13) * 2.5).toFixed(1)),
+      shift,
+    };
+  }),
+};
+
 export const retailBasketDataset: Dataset = {
   id: 'retail-basket',
   name: 'Retail Basket Dataset',
@@ -518,6 +582,9 @@ export const allSampleDatasets: Dataset[] = [
   timeSeriesSalesDataset,
   weatherDailyDataset,
   sensorAnomalyDataset,
+  recurrentTrafficDataset,
+  lstmRetailDemandDataset,
+  gruMachineLoadDataset,
   sentimentDataset,
   spamDataset,
   newsTopicDataset,
